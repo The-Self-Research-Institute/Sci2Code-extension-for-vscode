@@ -1,0 +1,89 @@
+{
+  "name": "zotero-plugin",
+  "displayName": "Zotero Plugin",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.91.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "zotero-plugin.login",
+        "title": "Zotero Login"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "zotero-explorer",
+          "title": "Zotero",
+          "icon": "resources/zotero.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "zotero-account",
+        "contents": "Login to access Zotero",
+        "when": "!zotero:loggedIn"
+      },
+      {
+        "view": "zotero-account",
+        "contents": "[Login to Zotero](command:zotero-plugin.login)",
+        "when": "!zotero:loggedIn"
+      },
+      {
+        "view": "zotero-account",
+        "contents": "You will need zotero API Key to connect your zotero account. You can get the Zotero API key from [here](https://www.zotero.org/settings/keys).",
+        "when": "!zotero:loggedIn"
+      },
+      {
+        "view": "zotero-account",
+        "contents": "Thanks for connecting with Zotero",
+        "when": "zotero:loggedIn"
+      },
+      {
+        "view": "zotero-documents",
+        "contents": "Authenticate to view your Zotero Documents",
+        "when": "!zotero:loggedIn"
+      }
+    ],
+    "views": {
+      "zotero-explorer": [
+        {
+          "id": "zotero-account",
+          "name": "Zotero Account"
+        },
+        {
+          "id": "zotero-documents",
+          "name": "Zotero Documents"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.91.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.11.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0"
+  }
+}
