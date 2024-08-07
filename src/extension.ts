@@ -3,9 +3,8 @@
 import * as vscode from "vscode";
 import { SidebarProvider } from "./providers/sidebarProvider";
 import { ZoteroAuthenticationProvider } from "./providers/authProvider";
-import { contextService } from "./services/contextService";
-import { ZOTERO_CONTEXT } from "./system/constants";
 import { generateSession } from "./auth/auth";
+import { registerJsDocCompletion } from "./features/jsDocCompletion";
 
 // This method is called when extension is activated
 export function activate(context: vscode.ExtensionContext) {
@@ -14,14 +13,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   const sidebarProvider = new SidebarProvider();
   vscode.window.registerTreeDataProvider("zotero-documents", sidebarProvider);
-
-  context.subscriptions.push(
-    vscode.authentication.registerAuthenticationProvider(
-      ZoteroAuthenticationProvider.id,
-      "Zotero",
-      new ZoteroAuthenticationProvider(context.secrets)
-    )
-  );
 
   vscode.authentication.onDidChangeSessions((e) => {
     sidebarProvider.refresh();
@@ -34,55 +25,25 @@ export function activate(context: vscode.ExtensionContext) {
 
   activateSession(false);
 
-  const zoteroItemsProvider = vscode.languages.registerCompletionItemProvider(
-    [
-      { language: "typescript", scheme: "file" },
-      { language: "javascript", scheme: "file" },
-      { language: "typescriptreact", scheme: "file" },
-      { language: "javascriptreact", scheme: "file" },
-    ],
-    {
-      provideCompletionItems(
-        document: vscode.TextDocument,
-        position: vscode.Position
-      ) {
-        const zoteroItems = contextService.getContext(
-          ZOTERO_CONTEXT.ZOTERO_ITEMS
-        );
-
-        // get all text until the `position` and check if it reads `zotero.`
-        const linePrefix = document
-          .lineAt(position)
-          .text.slice(0, position.character);
-
-        if (!linePrefix.endsWith("zotero.")) {
-          return undefined;
-        }
-
-        const completionItems = zoteroItems.map((zoteroItem: any) => {
-          return new vscode.CompletionItem(
-            `${zoteroItem?.data?.title} | ${zoteroItem?.links?.alternate?.href}`,
-            vscode.CompletionItemKind.Text
-          );
-        });
-
-        return completionItems;
-      },
-    },
-    "." // triggered whenever a '.' is being typed
+  context.subscriptions.push(
+    ...[
+      vscode.authentication.registerAuthenticationProvider(
+        ZoteroAuthenticationProvider.id,
+        "Zotero",
+        new ZoteroAuthenticationProvider(context.secrets)
+      ),
+      vscode.commands.registerCommand("zotero-plugin.login", async () => {
+        console.log("actiavting");
+        await activateSession(true);
+      }),
+      registerJsDocCompletion([
+        { language: "typescript", scheme: "file" },
+        { language: "javascript", scheme: "file" },
+        { language: "typescriptreact", scheme: "file" },
+        { language: "javascriptreact", scheme: "file" },
+      ]),
+    ]
   );
-
-  context.subscriptions.push(zoteroItemsProvider);
-
-  const loginDisposable = vscode.commands.registerCommand(
-    "zotero-plugin.login",
-    async () => {
-      console.log("actiavting");
-      await activateSession(true);
-    }
-  );
-
-  context.subscriptions.push(loginDisposable);
 }
 
 // This method is called when extension is deactivated
