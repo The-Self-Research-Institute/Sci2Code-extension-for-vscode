@@ -3,12 +3,18 @@ import { sha256 } from "js-sha256";
 
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
+import { ZoteroAuthenticationProvider } from "../providers/authProvider";
+import { fetchZoteroItem, updateZoteroTags } from "../zotero/api";
 
 class JsDocCompletionItem extends vscode.CompletionItem {
   constructor(
     public readonly document: vscode.TextDocument,
     public readonly position: vscode.Position,
-    public readonly zoteroItem: any
+    public readonly zoteroItem: any,
+    public readonly metadata: {
+      codeId: string;
+      functionName: string;
+    }
   ) {
     super(
       `/** ${zoteroItem?.data?.title} | ${zoteroItem?.links?.alternate?.href} */`,
@@ -66,18 +72,70 @@ function generateCodeId(functionName: string, fileName: string) {
 }
 
 function templateToSnippet(
-  functionName: string,
-  fileName: string,
+  codeId: string,
   zoteroItem: any
 ): vscode.SnippetString {
-  const codeId = generateCodeId(functionName, fileName);
   const template = `/** 
-	 * @ZoteroArticleIDs: ${zoteroItem?.data?.key}
-	 * @ZoteroArticleNames: ${zoteroItem?.data?.title}
-	 * @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
-	 * @CodeID: ${codeId}
-	 */`;
+ * @ZoteroArticleIDs: ${zoteroItem?.data?.key}
+ * @ZoteroArticleNames: ${zoteroItem?.data?.title}
+ * @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
+ * @CodeID: ${codeId}
+ */`;
   return new vscode.SnippetString(template);
+}
+
+async function saveMetadataToZotero(
+  userId: string,
+  itemKey: string,
+  metadata: {
+    codeId: string;
+    functionName: string;
+  }
+) {
+  try {
+    const session = await vscode.authentication.getSession(
+      ZoteroAuthenticationProvider.id,
+      []
+    );
+    const apiKey = session?.accessToken;
+
+    if (apiKey) {
+      const zoteroItem = await fetchZoteroItem(userId, itemKey, apiKey!);
+
+      if (!zoteroItem.ok) {
+        throw new Error(zoteroItem.statusText);
+      }
+
+      const zoteroItemRes: any = await zoteroItem.json();
+      const version = zoteroItemRes.version;
+      const tags = zoteroItemRes?.data?.tags || [];
+      const updatedTags = [...tags, { tag: JSON.stringify(metadata) }];
+
+      const addZoteroTag = await updateZoteroTags(
+        userId,
+        itemKey,
+        apiKey!,
+        version,
+        updatedTags
+      );
+
+      if (!addZoteroTag.ok) {
+        throw new Error(addZoteroTag.statusText);
+      }
+
+      vscode.window.showInformationMessage(
+        "Zotero | Successfully attached codeId to zotero."
+      );
+    } else {
+      throw new Error(
+        "Zotero | Invalid Session. Please sign out and try again."
+      );
+    }
+  } catch (err: any) {
+    vscode.window.showInformationMessage(
+      `Zotero | Failed to attach codeId to zotero. Please try again.`
+    );
+  }
 }
 
 class JsDocCompletionProvider implements vscode.CompletionItemProvider {
@@ -104,20 +162,22 @@ class JsDocCompletionProvider implements vscode.CompletionItemProvider {
           ZOTERO_CONTEXT.ZOTERO_ITEMS
         );
 
+        const fileName = extractFileName(document.fileName);
+
+        const codeId = generateCodeId(functionName, fileName);
+
         const zoteroCompletionItems = zoteroItems.map((zoteroItem: any) => {
           const completionItem = new JsDocCompletionItem(
             document,
             position,
-            zoteroItem
+            zoteroItem,
+            {
+              codeId,
+              functionName,
+            }
           );
 
-          const fileName = extractFileName(document.fileName);
-
-          completionItem.insertText = templateToSnippet(
-            functionName,
-            fileName,
-            zoteroItem
-          );
+          completionItem.insertText = templateToSnippet(codeId, zoteroItem);
 
           return completionItem;
         });
@@ -131,6 +191,17 @@ class JsDocCompletionProvider implements vscode.CompletionItemProvider {
     } else {
       vscode.window.showInformationMessage("Zotero | No next line available.");
     }
+  }
+
+  public resolveCompletionItem(
+    item: JsDocCompletionItem,
+    token: vscode.CancellationToken
+  ): vscode.ProviderResult<vscode.CompletionItem> {
+    const userId = item?.zoteroItem?.library?.id;
+    const itemKey = item?.zoteroItem?.key;
+    const metadata = item.metadata;
+    saveMetadataToZotero(userId, itemKey, metadata);
+    return item;
   }
 
   private isPotentiallyValidDocCompletionPosition(
@@ -151,7 +222,9 @@ class JsDocCompletionProvider implements vscode.CompletionItemProvider {
   }
 }
 
-export function registerJsDocCompletion(selector: vscode.DocumentSelector): vscode.Disposable {
+export function registerJsDocCompletion(
+  selector: vscode.DocumentSelector
+): vscode.Disposable {
   return vscode.languages.registerCompletionItemProvider(
     selector,
     new JsDocCompletionProvider(),

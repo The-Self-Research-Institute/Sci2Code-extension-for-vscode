@@ -33,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
         new ZoteroAuthenticationProvider(context.secrets)
       ),
       vscode.commands.registerCommand("zotero-plugin.login", async () => {
-        console.log("actiavting");
+        console.log("Actiavting");
         await activateSession(true);
       }),
       registerJsDocCompletion([
