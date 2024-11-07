@@ -7,6 +7,25 @@ VsCode Extension to connect with [Zotero](https://www.zotero.org/).
 - This extension allows to connect VsCode with Zotero.
 - Cite Reference from Zotero to Source Code.
 - This extension works in Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) files.
+- The suggestions for zotero document triggers when pressing /\*\*
+- After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment for the function with the details about zotero document:
+
+```
+/**
+ * @ZoteroArticleIDs: ZOTERO_ARTICLE_ID
+ * @ZoteroArticleNames: ZOTERO_ARTICLE_NAME
+ * @ZoteroArticleURLs: ZOTERO_ARTICLE_URL
+ * @CodeID: CODE_ID
+ */
+async function calculateDifference(c,b){
+
+}
+```
+
+- After creating the jsDoc comment the extension adds a new tag to document in zotero with the information containing codeId and functionName: 
+```
+{"codeId":CODE_ID,"functionName":"calculateDifference"}
+```
 
 ## Requirements
 
