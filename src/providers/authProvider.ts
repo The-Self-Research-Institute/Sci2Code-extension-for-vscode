@@ -2,6 +2,7 @@ import {
   authentication,
   AuthenticationProvider,
   AuthenticationProviderAuthenticationSessionsChangeEvent,
+  AuthenticationProviderSessionOptions,
   AuthenticationSession,
   Disposable,
   Event,
@@ -112,8 +113,9 @@ export class ZoteroAuthenticationProvider
 
   // This function is called first when `vscode.authentication.getSessions` is called.
   async getSessions(
-    _scopes?: string[]
-  ): Promise<readonly AuthenticationSession[]> {
+    scopes?: readonly string[],
+    options?: AuthenticationProviderSessionOptions
+  ): Promise<AuthenticationSession[]> {
     this.ensureInitialized();
     const token = await this.cacheTokenFromStorage();
     // if (token) {
