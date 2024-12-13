@@ -5,6 +5,7 @@ import { SidebarProvider } from "./providers/sidebarProvider";
 import { ZoteroAuthenticationProvider } from "./providers/authProvider";
 import { generateSession } from "./auth/auth";
 import { registerJsDocCompletion } from "./features/jsDocCompletion";
+import { registerPyDocCompletion } from "./features/pyDocCompletion";
 
 // This method is called when extension is activated
 export function activate(context: vscode.ExtensionContext) {
@@ -41,6 +42,9 @@ export function activate(context: vscode.ExtensionContext) {
         { language: "javascript", scheme: "file" },
         { language: "typescriptreact", scheme: "file" },
         { language: "javascriptreact", scheme: "file" },
+      ]),
+      registerPyDocCompletion([
+        { language: "python", scheme: "file" }, // Registering for Python files
       ]),
     ]
   );
