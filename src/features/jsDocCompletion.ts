@@ -16,12 +16,14 @@ class JsDocCompletionItem extends vscode.CompletionItem {
       functionName: string;
     }
   ) {
+    const titleOfItem = getZoteroItemTitle(zoteroItem);
     super(
-      `/** ${zoteroItem?.data?.title} | ${zoteroItem?.links?.alternate?.href} */`,
+      `/** ${zoteroItem.data.itemType}: ${titleOfItem} | ${zoteroItem?.links?.alternate?.href} */`,
       vscode.CompletionItemKind.Text
-    );
-    this.detail = vscode.l10n.t(`Zotero | ${zoteroItem?.data?.title}`);
-    this.sortText = "\0";
+  );
+  this.detail = vscode.l10n.t(`Zotero | Type: ${zoteroItem.data.itemType}, Title: ${titleOfItem}`);
+  this.sortText = "\0";
+
 
     const line = document.lineAt(position.line).text;
     const prefix = line.slice(0, position.character).match(/\/\**\s*$/);
@@ -35,6 +37,36 @@ class JsDocCompletionItem extends vscode.CompletionItem {
   }
 }
 
+export function getZoteroItemTitle(zoteroItem: any): string {
+  if (zoteroItem?.data) {
+      const itemType = zoteroItem.data.itemType;
+
+      let rawText;
+
+      if (itemType === "note") {
+          rawText = zoteroItem.data.note;
+      } else if (itemType === "annotation") {
+          rawText = zoteroItem.data.annotationText || "Untitled Annotation";
+      } else {
+          rawText = zoteroItem.data.title || "Untitled Article";
+      }
+
+      const plainText = rawText.replace(/<\/?[^>]+(>|$)/g, "").trim() || "Untitled";
+
+      return limitCharacters(plainText, 75);
+  }
+  return "Unknown Item";
+}
+
+function limitCharacters(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+      return text;
+  }
+
+  const limitedText = text.substring(0, maxChars);
+  return limitedText + "...";
+}
+
 function extractFunctionName(lineText: string): string | null {
   // This regex matches common function definitions, but may need to adjust it for different languages or styles
   const functionRegex = /function\s+(\w+)\s*\(/;
@@ -43,8 +75,9 @@ function extractFunctionName(lineText: string): string | null {
 }
 
 function extractFileName(fullPath: string): string {
-  // Extract the filename from the full path
-  return fullPath.split(/[/\\]/).pop() || "";
+  const fileName = fullPath.split(/[/\\]/).pop() || "";
+  console.log(`Extracted filename: ${fileName}`);
+  return fileName;
 }
 
 function generateSha256(name: string) {
@@ -71,17 +104,16 @@ function generateCodeId(functionName: string, fileName: string) {
   )}`;
 }
 
-function templateToSnippet(
-  codeId: string,
-  zoteroItem: any
-): vscode.SnippetString {
-  const template = `/** 
- * @ZoteroArticleIDs: ${zoteroItem?.data?.key}
- * @ZoteroArticleNames: ${zoteroItem?.data?.title}
- * @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
- * @CodeID: ${codeId}
- */`;
-  return new vscode.SnippetString(template);
+function templateToSnippet(codeId: string,titleOfItem: string, zoteroItem: any): vscode.SnippetString {
+    const template = `/** 
+    * @ZoteroArticleIDs: ${zoteroItem?.data?.key}
+    * @ZoteroitemType: ${zoteroItem?.data?.itemType}
+    * @ZoteroArticleNames: ${titleOfItem}
+    * @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
+    * @CodeID: ${codeId}
+    */`;
+    console.log(`Generated snippet: ${template}`);
+    return new vscode.SnippetString(template);
 }
 
 async function saveMetadataToZotero(
@@ -167,6 +199,7 @@ class JsDocCompletionProvider implements vscode.CompletionItemProvider {
         const codeId = generateCodeId(functionName, fileName);
 
         const zoteroCompletionItems = zoteroItems.map((zoteroItem: any) => {
+          const titleOfItem = getZoteroItemTitle(zoteroItem);
           const completionItem = new JsDocCompletionItem(
             document,
             position,
@@ -177,7 +210,7 @@ class JsDocCompletionProvider implements vscode.CompletionItemProvider {
             }
           );
 
-          completionItem.insertText = templateToSnippet(codeId, zoteroItem);
+          completionItem.insertText = templateToSnippet(codeId,titleOfItem, zoteroItem);
 
           return completionItem;
         });
