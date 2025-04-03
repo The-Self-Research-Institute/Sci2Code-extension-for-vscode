@@ -1,10 +1,11 @@
 {
-  "name": "zotero-plugin",
-  "displayName": "Zotero Plugin",
+  "name": "sci-2-code",
+  "displayName": "Sci-2-Code",
+  "publisher": "SelfResearchInstitute",
   "description": "",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.91.1"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "Other"
@@ -14,7 +15,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "zotero-plugin.login",
+        "command": "sci-2-code.login",
         "title": "Zotero Login"
       }
     ],
@@ -35,7 +36,7 @@
       },
       {
         "view": "zotero-account",
-        "contents": "[Login to Zotero](command:zotero-plugin.login)",
+        "contents": "[Login to Zotero](command:sci-2-code.login)",
         "when": "!zotero:loggedIn"
       },
       {

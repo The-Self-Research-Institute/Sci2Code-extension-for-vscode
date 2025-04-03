@@ -20,10 +20,11 @@ class JsDocCompletionItem extends vscode.CompletionItem {
     super(
       `/** ${zoteroItem.data.itemType}: ${titleOfItem} | ${zoteroItem?.links?.alternate?.href} */`,
       vscode.CompletionItemKind.Text
-  );
-  this.detail = vscode.l10n.t(`Zotero | Type: ${zoteroItem.data.itemType}, Title: ${titleOfItem}`);
-  this.sortText = "\0";
-
+    );
+    this.detail = vscode.l10n.t(
+      `Zotero | Type: ${zoteroItem.data.itemType}, Title: ${titleOfItem}`
+    );
+    this.sortText = "\0";
 
     const line = document.lineAt(position.line).text;
     const prefix = line.slice(0, position.character).match(/\/\**\s*$/);
@@ -39,28 +40,41 @@ class JsDocCompletionItem extends vscode.CompletionItem {
 
 export function getZoteroItemTitle(zoteroItem: any): string {
   if (zoteroItem?.data) {
-      const itemType = zoteroItem.data.itemType;
+    const itemType = zoteroItem.data.itemType;
 
-      let rawText;
+    let rawText;
 
-      if (itemType === "note") {
-          rawText = zoteroItem.data.note;
-      } else if (itemType === "annotation") {
-          rawText = zoteroItem.data.annotationText || "Untitled Annotation";
-      } else {
-          rawText = zoteroItem.data.title || "Untitled Article";
-      }
+    if (itemType === "note") {
+      rawText = zoteroItem.data.note;
+    } else if (itemType === "annotation") {
+      rawText = zoteroItem.data.annotationText || "Untitled Annotation";
+    } else {
+      console.log(
+        "DOI",
+        zoteroItem?.data?.DOI,
+        zoteroItem?.data?.ISBN,
+        zoteroItem?.data?.ISSN
+      );
+      rawText = zoteroItem.data.title
+        ? `${zoteroItem.data.title} ${
+            zoteroItem?.data?.DOI ? `| ${zoteroItem?.data?.DOI}` : ""
+          } ${zoteroItem?.data?.ISBN ? `| ${zoteroItem?.data?.ISBN}` : ""} ${
+            zoteroItem?.data?.ISSN ? `| ${zoteroItem?.data?.ISSN}` : ""
+          }`
+        : "Untitled Article";
+    }
 
-      const plainText = rawText.replace(/<\/?[^>]+(>|$)/g, "").trim() || "Untitled";
+    const plainText =
+      rawText.replace(/<\/?[^>]+(>|$)/g, "").trim() || "Untitled";
 
-      return limitCharacters(plainText, 75);
+    return limitCharacters(plainText, 75);
   }
   return "Unknown Item";
 }
 
 function limitCharacters(text: string, maxChars: number): string {
   if (text.length <= maxChars) {
-      return text;
+    return text;
   }
 
   const limitedText = text.substring(0, maxChars);
@@ -104,16 +118,20 @@ function generateCodeId(functionName: string, fileName: string) {
   )}`;
 }
 
-function templateToSnippet(codeId: string,titleOfItem: string, zoteroItem: any): vscode.SnippetString {
-    const template = `/** 
+function templateToSnippet(
+  codeId: string,
+  titleOfItem: string,
+  zoteroItem: any
+): vscode.SnippetString {
+  const template = `/** 
     * @ZoteroArticleIDs: ${zoteroItem?.data?.key}
     * @ZoteroitemType: ${zoteroItem?.data?.itemType}
     * @ZoteroArticleNames: ${titleOfItem}
     * @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
     * @CodeID: ${codeId}
     */`;
-    console.log(`Generated snippet: ${template}`);
-    return new vscode.SnippetString(template);
+  console.log(`Generated snippet: ${template}`);
+  return new vscode.SnippetString(template);
 }
 
 async function saveMetadataToZotero(
@@ -210,7 +228,11 @@ class JsDocCompletionProvider implements vscode.CompletionItemProvider {
             }
           );
 
-          completionItem.insertText = templateToSnippet(codeId,titleOfItem, zoteroItem);
+          completionItem.insertText = templateToSnippet(
+            codeId,
+            titleOfItem,
+            zoteroItem
+          );
 
           return completionItem;
         });

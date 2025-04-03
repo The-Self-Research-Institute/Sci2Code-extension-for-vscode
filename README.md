@@ -1,4 +1,4 @@
-# zotero-plugin README
+# sci-2-code README
 
 VsCode Extension to connect with [Zotero](https://www.zotero.org/).
 
