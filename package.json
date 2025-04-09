@@ -1,13 +1,20 @@
 {
-  "name": "sci-2-code",
-  "displayName": "Sci-2-Code",
+  "name": "sci2code",
+  "displayName": "Sci2Code",
   "publisher": "SelfResearchInstitute",
-  "description": "",
-  "version": "0.0.1",
+  "author": {
+    "name": "The Self Research Institute"
+  },
+  "description": "Sci2Code integrates Zotero with VS Code, letting you insert and manage references as JSDoc and PyDoc comments directly from your Zotero library, and more",
+  "license": "MIT",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.95.0"
   },
   "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Data Science",
     "Other"
   ],
   "activationEvents": [],
@@ -15,7 +22,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "sci-2-code.login",
+        "command": "sci2code.login",
         "title": "Zotero Login"
       }
     ],
@@ -36,7 +43,7 @@
       },
       {
         "view": "zotero-account",
-        "contents": "[Login to Zotero](command:sci-2-code.login)",
+        "contents": "[Login to Zotero](command:sci2code.login)",
         "when": "!zotero:loggedIn"
       },
       {
@@ -74,6 +81,7 @@
     "watch": "tsc -watch -p ./",
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src --ext ts",
+    "lint:fix": "eslint src --ext ts --fix",
     "test": "vscode-test"
   },
   "devDependencies": {
@@ -85,7 +93,6 @@
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^8.57.1",
-    "js-sha256": "^0.11.0",
     "typescript": "^5.6.3"
   }
 }

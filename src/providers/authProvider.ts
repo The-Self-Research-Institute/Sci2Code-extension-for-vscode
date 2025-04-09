@@ -148,7 +148,6 @@ export class ZoteroAuthenticationProvider
       ZoteroAuthenticationProvider.secretKey,
       token
     );
-    console.log("Successfully logged in to Zotero");
 
     contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
 

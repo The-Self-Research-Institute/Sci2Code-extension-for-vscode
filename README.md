@@ -1,14 +1,31 @@
-# sci-2-code README
+# Sci2Code README
 
 VsCode Extension to connect with [Zotero](https://www.zotero.org/).
 
-## Features
+**Sci2Code** bridges the gap between your research library and your code. This extension allows seamless integration of **Zotero**, your trusted reference manager, directly into **Visual Studio Code**. Easily link academic articles, papers, and other resources from your Zotero library as inline citations in your code using **JSDoc** and **PyDoc** comments.
+
+- 🔗 **Link Zotero items** directly into your code as references  
+- ✍️ **Insert citations** into JavaScript and Python documentation comments (JSDoc / PyDoc)  
+- 📚 **Browse and search** your Zotero library from within VS Code  
+- 🔄 **Sync your code** with your research for better traceability
+
+---
+
+**Ideal for** researchers, students, and developers working on scientific or data-driven projects who want to keep references organized, accessible, and close to their code.
+
+## Installation
+You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace]().
+
+## Get Started
+To get started using the extension, open any Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) and python(.py) file.
+
+### Features
 
 - This extension allows to connect VsCode with Zotero.
 - Cite Reference from Zotero to Source Code.
-- This extension works in Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) files.
-- The suggestions for zotero document triggers when pressing /\*\*
-- After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment for the function with the details about zotero document:
+- This extension works in Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) and python(.py) files.
+- The suggestions for zotero document triggers when pressing /\*\* for javascript, typescript files and """ for python files.
+- After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment or pyDoc for the function with the details about zotero document:
 
 ```
 /**
@@ -50,7 +67,7 @@ pnpm i
 pnpm run compile
 ```
 
-- or to run the extension in watch mode, use the command below:
+- To run the extension in watch mode, use the command below:
 
 ```
 pnpm run compile
@@ -64,3 +81,13 @@ pnpm run compile
 
 - [Visual Studio Code's Extension API ](https://code.visualstudio.com/api)
 - [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+
+## Contact Us
+We encourage all feedback. If you encounter a technical issue or have an enhancement request, create an issue here or contact The Self Research Institute at .
+
+## Release Notes
+
+### 1.0.0
+Release date: 2025-04-09
+
+* Initial release.

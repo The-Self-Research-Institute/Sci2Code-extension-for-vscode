@@ -10,7 +10,7 @@ import { registerPyDocCompletion } from "./features/pyDocCompletion";
 // This method is called when extension is activated
 export function activate(context: vscode.ExtensionContext) {
   // This line of code will only be executed once extension is activated
-  console.log('Extension "sci-2-code" is now active!');
+  console.log('Extension "Sci2Code" is now active!');
 
   const sidebarProvider = new SidebarProvider();
   vscode.window.registerTreeDataProvider("zotero-documents", sidebarProvider);
@@ -33,8 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
         "Zotero",
         new ZoteroAuthenticationProvider(context.secrets)
       ),
-      vscode.commands.registerCommand("sci-2-code.login", async () => {
-        console.log("Actiavting");
+      vscode.commands.registerCommand("sci2code.login", async () => {
         await activateSession(true);
       }),
       registerJsDocCompletion([

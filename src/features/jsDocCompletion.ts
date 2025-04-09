@@ -1,10 +1,9 @@
 import * as vscode from "vscode";
-import { sha256 } from "js-sha256";
-
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { ZoteroAuthenticationProvider } from "../providers/authProvider";
 import { fetchZoteroItem, updateZoteroTags } from "../zotero/api";
+import { generateSha256 } from "../utils/utils";
 
 class JsDocCompletionItem extends vscode.CompletionItem {
   constructor(
@@ -49,12 +48,6 @@ export function getZoteroItemTitle(zoteroItem: any): string {
     } else if (itemType === "annotation") {
       rawText = zoteroItem.data.annotationText || "Untitled Annotation";
     } else {
-      console.log(
-        "DOI",
-        zoteroItem?.data?.DOI,
-        zoteroItem?.data?.ISBN,
-        zoteroItem?.data?.ISSN
-      );
       rawText = zoteroItem.data.title
         ? `${zoteroItem.data.title} ${
             zoteroItem?.data?.DOI ? `| ${zoteroItem?.data?.DOI}` : ""
@@ -90,15 +83,7 @@ function extractFunctionName(lineText: string): string | null {
 
 function extractFileName(fullPath: string): string {
   const fileName = fullPath.split(/[/\\]/).pop() || "";
-  console.log(`Extracted filename: ${fileName}`);
   return fileName;
-}
-
-function generateSha256(name: string) {
-  // Generate SHA-256 hash
-  const hash = sha256.create();
-  hash.update(name);
-  return hash.hex();
 }
 
 function generateUniqueString() {
@@ -130,7 +115,6 @@ function templateToSnippet(
     * @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
     * @CodeID: ${codeId}
     */`;
-  console.log(`Generated snippet: ${template}`);
   return new vscode.SnippetString(template);
 }
 

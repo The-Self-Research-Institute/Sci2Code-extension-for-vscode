@@ -14,7 +14,7 @@ export const getZoteroCollections = async (userId: string, apiKey: string) => {
     method: "GET",
     headers: {
       "content-type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
     },
   });
 };
