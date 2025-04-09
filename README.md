@@ -1,4 +1,4 @@
-# Sci2Code README
+# Sci2Code
 
 VsCode Extension to connect with [Zotero](https://www.zotero.org/).
 
@@ -24,6 +24,7 @@ To get started using the extension, open any Javascript(.js), Typescript(.ts), J
 - This extension allows to connect VsCode with Zotero.
 - Cite Reference from Zotero to Source Code.
 - This extension works in Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) and python(.py) files.
+- This extension supports searching documents with Title, DOI, ISBN and ISSN.
 - The suggestions for zotero document triggers when pressing /\*\* for javascript, typescript files and """ for python files.
 - After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment or pyDoc for the function with the details about zotero document:
 
@@ -43,6 +44,8 @@ async function calculateDifference(c,b){
 ```
 {"codeId":CODE_ID,"functionName":"calculateDifference"}
 ```
+
+![Sci2Code Extension Demo](resources/Features.gif)
 
 ## Requirements
 
@@ -83,7 +86,7 @@ pnpm run compile
 - [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
 
 ## Contact Us
-We encourage all feedback. If you encounter a technical issue or have an enhancement request, create an issue here or contact The Self Research Institute at .
+We encourage all feedback. If you encounter a technical issue or have an enhancement request, create an issue here or contact The Self Research Institute at [sterling@selfresearch.org](mailto:sterling@selfresearch.org).
 
 ## Release Notes
 
