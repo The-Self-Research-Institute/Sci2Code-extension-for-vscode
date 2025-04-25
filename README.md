@@ -23,15 +23,16 @@ To get started using the extension, open any Javascript(.js), Typescript(.ts), J
 
 - This extension allows to connect VsCode with Zotero.
 - Cite Reference from Zotero to Source Code.
-- This extension works in Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) and python(.py) files.
+- This extension works in JavaScript (.js), TypeScript (.ts), JavaScript React (.jsx), TypeScript React (.tsx), Python (.py), Julia (.jl), and R (.r) files.
 - This extension supports searching documents with Title, DOI, ISBN and ISSN.
-- The suggestions for zotero document triggers when pressing /\*\* for javascript, typescript files and """ for python files.
+- The suggestions for Zotero document triggers when pressing /** for JavaScript and TypeScript files, """ for Python files, """ for Julia files, and #' for R files.
 - After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment or pyDoc for the function with the details about zotero document:
 
 ```
 /**
  * @ZoteroArticleIDs: ZOTERO_ARTICLE_ID
  * @ZoteroArticleNames: ZOTERO_ARTICLE_NAME
+ * @ZoteroitemType: ZOTERO_ARTICLE_TYPE
  * @ZoteroArticleURLs: ZOTERO_ARTICLE_URL
  * @CodeID: CODE_ID
  */

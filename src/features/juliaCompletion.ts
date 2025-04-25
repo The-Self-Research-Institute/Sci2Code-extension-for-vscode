@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
-
 import {
   extractFileName,
   extractFunctionName,
@@ -10,7 +9,7 @@ import {
   saveMetadataToZotero,
 } from "../utils/zotero.utils";
 
-class PyDocCompletionItem extends vscode.CompletionItem {
+class JuliaDocCompletionItem extends vscode.CompletionItem {
   constructor(
     public readonly document: vscode.TextDocument,
     public readonly position: vscode.Position,
@@ -22,12 +21,14 @@ class PyDocCompletionItem extends vscode.CompletionItem {
   ) {
     const titleOfItem = getZoteroItemTitle(zoteroItem);
     super(
-      `""" ${zoteroItem.data.itemType}: ${titleOfItem} | ${zoteroItem?.links?.alternate?.href} """`,
+      `""" ${zoteroItem.data.itemType}: ${titleOfItem} | ${zoteroItem?.links?.alternate?.href}`,
       vscode.CompletionItemKind.Text
     );
     this.detail = vscode.l10n.t(
       `Zotero | Type: ${zoteroItem.data.itemType}, Title: ${titleOfItem}`
     );
+    // this.sortText = "\0";
+
     const line = document.lineAt(position.line).text;
     const prefix = line.slice(0, position.character).match(/"""?\s*$/);
     const suffix = line.slice(position.character).match(/^\s*"""/);
@@ -45,7 +46,7 @@ function templateToSnippet(
   titleOfItem: string,
   zoteroItem: any
 ): vscode.SnippetString {
-  const template = `""" 
+  const template = `"""
     * @ZoteroArticleIDs: ${zoteroItem?.data?.key}
     * @ZoteroitemType: ${zoteroItem?.data?.itemType}
     * @ZoteroArticleNames: ${titleOfItem}
@@ -55,7 +56,7 @@ function templateToSnippet(
   return new vscode.SnippetString(template);
 }
 
-class PyDocCompletionProvider implements vscode.CompletionItemProvider {
+class JuliaDocCompletionProvider implements vscode.CompletionItemProvider {
   constructor() {}
 
   public async provideCompletionItems(
@@ -72,7 +73,7 @@ class PyDocCompletionProvider implements vscode.CompletionItemProvider {
     if (nextLine < document.lineCount) {
       let nextLineText = document.lineAt(nextLine).text;
 
-      let functionName = extractFunctionName(nextLineText, "python");
+      let functionName = extractFunctionName(nextLineText, "julia");
 
       if (functionName) {
         const zoteroItems = contextService.getContext(
@@ -83,7 +84,7 @@ class PyDocCompletionProvider implements vscode.CompletionItemProvider {
 
         const zoteroCompletionItems = zoteroItems.map((zoteroItem: any) => {
           const titleOfItem = getZoteroItemTitle(zoteroItem);
-          const completionItem = new PyDocCompletionItem(
+          const completionItem = new JuliaDocCompletionItem(
             document,
             position,
             zoteroItem,
@@ -114,7 +115,7 @@ class PyDocCompletionProvider implements vscode.CompletionItemProvider {
   }
 
   public resolveCompletionItem(
-    item: PyDocCompletionItem,
+    item: JuliaDocCompletionItem,
     token: vscode.CancellationToken
   ): vscode.ProviderResult<vscode.CompletionItem> {
     const userId = item?.zoteroItem?.library?.id;
@@ -136,12 +137,12 @@ class PyDocCompletionProvider implements vscode.CompletionItemProvider {
   }
 }
 
-export function registerPyDocCompletion(
+export function registerJuliaDocCompletion(
   selector: vscode.DocumentSelector
 ): vscode.Disposable {
   return vscode.languages.registerCompletionItemProvider(
     selector,
-    new PyDocCompletionProvider(),
-    '"' // You might also want to add other characters if you wish to trigger on `"""` as well
+    new JuliaDocCompletionProvider(),
+    '"' // Triggered by typing a "
   );
 }

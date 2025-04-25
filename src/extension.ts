@@ -6,6 +6,8 @@ import { ZoteroAuthenticationProvider } from "./providers/authProvider";
 import { generateSession } from "./auth/auth";
 import { registerJsDocCompletion } from "./features/jsDocCompletion";
 import { registerPyDocCompletion } from "./features/pyDocCompletion";
+import { registerRDocCompletion } from "./features/rCompletion";
+import { registerJuliaDocCompletion } from "./features/juliaCompletion";
 
 // This method is called when extension is activated
 export function activate(context: vscode.ExtensionContext) {
@@ -44,6 +46,12 @@ export function activate(context: vscode.ExtensionContext) {
       ]),
       registerPyDocCompletion([
         { language: "python", scheme: "file" }, // Registering for Python files
+      ]),
+      registerRDocCompletion([
+        { language: "r", scheme: "file" }, // Registering for R files
+      ]),
+      registerJuliaDocCompletion([
+        { language: "julia", scheme: "file" }, // Registering for R files
       ]),
     ]
   );
