@@ -25,7 +25,12 @@ To get started using the extension, open any Javascript(.js), Typescript(.ts), J
 - Cite Reference from Zotero to Source Code.
 - This extension works in JavaScript (.js), TypeScript (.ts), JavaScript React (.jsx), TypeScript React (.tsx), Python (.py), Julia (.jl), and R (.r) files.
 - This extension supports searching documents with Title, DOI, ISBN and ISSN.
-- The suggestions for Zotero document triggers when pressing /** for JavaScript and TypeScript files, """ for Python files, """ for Julia files, and #' for R files.
+- The suggestions for Zotero document trigger when pressing:
+  - `/**` for **JavaScript** and **TypeScript** files  
+  - `"""` for **Python** files  
+  - `"""` for **Julia** files  
+  - `#'` for **R** files
+
 - After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment or pyDoc for the function with the details about zotero document:
 
 ```
