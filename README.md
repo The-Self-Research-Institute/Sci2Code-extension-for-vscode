@@ -17,7 +17,7 @@ VsCode Extension to connect with [Zotero](https://www.zotero.org/).
 You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace]().
 
 ## Get Started
-To get started using the extension, open any Javascript(.js), Typescript(.ts), Javascript XML(.jsx), Typescript XML(.tsx), python(.py), Julia (.jl), and R (.r) file.
+To get started using the extension, open any Javascript(.js), Typescript(.ts), JavascriptXML(.jsx), TypescriptXML(.tsx), python(.py), Julia(.jl), and R(.r) file.
 
 ### Features
 
