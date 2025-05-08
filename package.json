@@ -12,7 +12,7 @@
   "icon": "resources/Sci2CodeLogo.png",
   "description": "Sci2Code integrates Zotero with VS Code, letting you insert and manage references as JSDoc and PyDoc comments directly from your Zotero library, and more",
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.95.0"
   },
