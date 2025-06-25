@@ -17,13 +17,13 @@ VsCode Extension to connect with [Zotero](https://www.zotero.org/).
 You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace]().
 
 ## Get Started
-To get started using the extension, open any Javascript(.js), Typescript(.ts), JavascriptReact(.jsx) and TypescriptReact(.tsx) and python(.py) file.
+To get started using the extension, open any Javascript(.js), Typescript(.ts), JavascriptXML(.jsx), TypescriptXML(.tsx), python(.py), Julia(.jl), and R(.r) file.
 
 ### Features
 
 - This extension allows to connect VsCode with Zotero.
 - Cite Reference from Zotero to Source Code.
-- This extension works in JavaScript (.js), TypeScript (.ts), JavaScript React (.jsx), TypeScript React (.tsx), Python (.py), Julia (.jl), and R (.r) files.
+- This extension works in JavaScript (.js), TypeScript (.ts), JavaScript XML (.jsx), TypeScript XML (.tsx), Python (.py), Julia (.jl), and R (.r) files.
 - This extension supports searching documents with Title, DOI, ISBN and ISSN.
 - The suggestions for Zotero document trigger when pressing:
   - `/**` for **JavaScript** and **TypeScript** files  
