@@ -12,7 +12,7 @@
   "icon": "resources/Sci2CodeLogo.png",
   "description": "Sci2Code integrates Zotero with VS Code, letting you insert and manage references as JSDoc and PyDoc comments directly from your Zotero library, and more",
   "license": "MIT",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -24,6 +24,7 @@
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
+  "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
       {
@@ -87,7 +88,9 @@
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src --ext ts",
     "lint:fix": "eslint src --ext ts --fix",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test-web": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=./",
+    "compile-web": "webpack --config webpack.config.js --mode development --watch"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.9",
@@ -97,7 +100,21 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.4.1",
+    "@vscode/test-web": "*",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
     "eslint": "^8.57.1",
-    "typescript": "^5.6.3"
+    "https-browserify": "^1.0.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^5.1.4"
   }
 }

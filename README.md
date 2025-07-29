@@ -92,7 +92,7 @@ pnpm run compile
 - [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
 
 ## Contact Us
-We encourage all feedback. If you encounter a technical issue or have an enhancement request, create an issue here or contact The Self Research Institute at [sterling@selfresearch.org](mailto:sterling@selfresearch.org).
+We encourage all feedback. If you encounter a technical issue or have an enhancement request, create an issue here or contact The Self Research Institute at [support@selfresearch.org](mailto:support@selfresearch.org).
 
 ## Release Notes
 
