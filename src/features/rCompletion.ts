@@ -37,18 +37,60 @@ class RDocCompletionItem extends vscode.CompletionItem {
   }
 }
 
-function templateToSnippet(
+interface ZoteroItem {
+  data: {
+    key: string;
+    itemType: string;
+    DOI?: string;
+    ISBN?: string;
+    ISSN?: string;
+  };
+  links?: {
+    alternate?: {
+      href: string;
+    };
+  };
+}
+
+export function templateToSnippet(
   codeId: string,
   titleOfItem: string,
-  zoteroItem: any
+  zoteroItem: ZoteroItem
 ): vscode.SnippetString {
-  const template = `#' 
-    #' @ZoteroArticleIDs: ${zoteroItem?.data?.key}
-    #' @ZoteroitemType: ${zoteroItem?.data?.itemType}
-    #' @ZoteroArticleNames: ${titleOfItem}
-    #' @ZoteroArticleURLs: ${zoteroItem?.links?.alternate?.href}
-    #' @CodeID: ${codeId}
-    #'`;
+  const fields: { [key: string]: string | undefined } = {};
+
+  const { key, itemType, DOI, ISBN, ISSN } = zoteroItem?.data || {};
+  const url = zoteroItem?.links?.alternate?.href;
+
+  fields.ZoteroArticleIDs = key;
+  fields.ZoteroitemType = itemType;
+  fields.ZoteroArticleNames = titleOfItem;
+  fields.ZoteroArticleURLs = url;
+
+  switch (itemType) {
+    case 'journalArticle':
+      if (DOI) fields.ZoteroArticleDOI = DOI;
+      if (ISSN) fields.ZoteroArticleISSN = ISSN;
+      break;
+    case 'book':
+      if (DOI) fields.ZoteroArticleDOI = DOI;
+      if (ISBN) fields.ZoteroArticleISBN = ISBN;
+      break;
+    case 'conferencePaper':
+    case 'bookSection':
+    case 'report':
+      if (DOI) fields.ZoteroArticleDOI = DOI;
+      break;
+  }
+
+  fields.CodeID = codeId;
+
+  const commentLines = Object.entries(fields)
+    .filter(([, value]) => value)
+    .map(([key, value]) => ` #' @${key}: ${value}`);
+
+  const template = `#\n${commentLines.join('\n')}\n #`;
+
   return new vscode.SnippetString(template);
 }
 

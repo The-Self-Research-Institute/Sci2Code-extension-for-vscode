@@ -81,7 +81,7 @@ export function generateCodeId(functionName: string, fileName: string): string {
 export async function saveMetadataToZotero(
   userId: string,
   itemKey: string,
-  metadata: { codeId: string; functionName: string }
+  metadata: { codeId: string; functionName: string | null }
 ): Promise<void> {
   try {
     const session = await vscode.authentication.getSession(

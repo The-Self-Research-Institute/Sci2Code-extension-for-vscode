@@ -28,10 +28,44 @@
   "contributes": {
     "commands": [
       {
-        "command": "sci2code.login",
-        "title": "Zotero Login"
+        "command": "sci2code.insertZoteroCitation",
+        "title": "Sci2Code: Insert Zotero Citation"
+      },
+      {
+        "command": "zotero.refresh",
+        "title": "Refresh Library",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "zotero.search",
+        "title": "Search Library",
+        "icon": "$(search)"
+      },
+      {
+        "command": "zotero.clearFilter",
+        "title": "Clear Search",
+        "icon": "$(clear-all)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "zotero.search",
+          "when": "view == zotero-documents",
+          "group": "navigation@1"
+        },
+        {
+          "command": "zotero.clearFilter",
+          "when": "view == zotero-documents",
+          "group": "navigation@2"
+        },
+        {
+          "command": "zotero.refresh",
+          "when": "view == zotero-documents",
+          "group": "navigation@3"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -68,6 +102,14 @@
         "when": "!zotero:loggedIn"
       }
     ],
+     "keybindings": [
+    {
+      "command": "sci2code.insertZoteroCitation", 
+      "key": "ctrl+alt+c",
+      "mac": "cmd+alt+c",
+      "when": "editorTextFocus"
+    }
+  ],
     "views": {
       "zotero-explorer": [
         {
