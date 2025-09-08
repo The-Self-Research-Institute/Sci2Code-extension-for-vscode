@@ -36,7 +36,6 @@ export function getSnippetForLanguage(
             return juliaTemplate(codeId, titleOfItem, zoteroItem);
 
         default:
-            // Return null or a generic fallback snippet for unsupported languages
             vscode.window.showWarningMessage(`Sci2Code: Citation snippets are not supported for '${languageId}' files yet.`);
             return null;
     }
