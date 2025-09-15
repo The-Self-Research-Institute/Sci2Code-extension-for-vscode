@@ -36,11 +36,11 @@ function limitCharacters(text: string, maxChars: number): string {
 
 export function extractFunctionName(
   lineText: string,
-  lang: "js" | "python" | "r" | "julia"
+  lang: "javascript" | "python" | "r" | "julia"
 ): string | null {
   let match = null;
   switch (lang) {
-    case "js":
+    case "javascript":
       match = lineText.match(/function\s+(\w+)\s*\(/);
       return match ? match[1] : null;
     case "python":

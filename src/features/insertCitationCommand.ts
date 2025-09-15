@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
-import { getSnippetForLanguage } from "./snippetFactory";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import {
   extractFileName,
@@ -9,29 +8,31 @@ import {
   getZoteroItemTitle,
   saveMetadataToZotero,
 } from "../utils/zotero.utils";
+import { renderTemplate } from "./templateService";
 
 interface ZoteroQuickPickItem extends vscode.QuickPickItem {
   zoteroItem: any;
 }
 
-export async function insertCitationCommand() {
+export async function insertCitationCommand(statusItem: vscode.StatusBarItem) {
+ 
   const zoteroItems = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS);
 
   if (!zoteroItems || zoteroItems.length === 0) {
-    const learnMore = "Configure Zotero API Key";
+    const refreshAndTryAgain = "Refresh Zotero Library";
     const result = await vscode.window.showErrorMessage(
-      "Sci2Code: No Zotero items found. Please check your Zotero API configuration.",
-      learnMore
+      "Sci2Code: No Zotero items found. Please try refreshing your library or checking your API key.",
+      refreshAndTryAgain
     );
 
-    if (result === learnMore) {
-      vscode.commands.executeCommand(
-        "workbench.action.openSettings",
-        "sci2code.zoteroApiKey"
-      );
+    if (result === refreshAndTryAgain) {
+      vscode.commands.executeCommand('zotero.refresh');
     }
     return;
   }
+
+  // --- Show Progress in Status Bar ---
+  statusItem.text = '$(sync~spin) Searching Zotero...';
 
   const quickPickItems: ZoteroQuickPickItem[] = zoteroItems.map(
     (item: any) => ({
@@ -49,6 +50,8 @@ export async function insertCitationCommand() {
     ignoreFocusOut: true,
   });
 
+  statusItem.text = '$(zap) Zotero: Ready'; // Reset status bar
+
   if (!selectedItem) {
     return;
   }
@@ -62,22 +65,21 @@ export async function insertCitationCommand() {
   const position = editor.selection.active;
   const fileName = extractFileName(document.fileName);
 
-  let functionName: string | null = "";
+  let functionName: string | null = null;
   for (let i = position.line; i < document.lineCount; i++) {
     const lineText = document.lineAt(i).text;
-    functionName = extractFunctionName(lineText, "js"); // Assuming 'js' for now
+    functionName = extractFunctionName(lineText, "javascript"); // Assuming 'js' for now, should be language-aware
     if (functionName) break;
   }
 
   const codeId = generateCodeId(functionName || fileName, fileName);
   const titleOfItem = getZoteroItemTitle(selectedItem.zoteroItem);
-
   const languageId = editor.document.languageId;
-  const snippet = getSnippetForLanguage(
+  
+  const snippet = renderTemplate(
     languageId,
-    codeId,
-    titleOfItem,
-    selectedItem.zoteroItem
+    selectedItem.zoteroItem,
+    { codeId, functionName }
   );
 
   if (snippet) {
@@ -90,15 +92,11 @@ export async function insertCitationCommand() {
       `Sci2Code: Couldn't add citation: This file type isn't supported.`
     );
   }
-
+  
   const userId = selectedItem.zoteroItem?.library?.id;
   const itemKey = selectedItem.zoteroItem?.key;
   const metadata = { codeId, functionName };
   saveMetadataToZotero(userId, itemKey, metadata);
-
-  vscode.window.showInformationMessage(
-    `Sci2Code: Inserted citation for "${titleOfItem}".`
-  );
 }
 
 export const insertCitationFromSidebarCommand = (zoteroItem: any) => {
@@ -113,11 +111,10 @@ export const insertCitationFromSidebarCommand = (zoteroItem: any) => {
   const titleOfItem = getZoteroItemTitle(zoteroItem);
 
   const languageId = editor.document.languageId;
-  const snippet = getSnippetForLanguage(
+  const snippet = renderTemplate(
     languageId,
-    codeId,
-    titleOfItem,
-    zoteroItem
+    zoteroItem,
+    { codeId, functionName }
   );
 
   if (snippet) {
@@ -136,13 +133,4 @@ export const insertCitationFromSidebarCommand = (zoteroItem: any) => {
       `Sci2Code: Couldn't add citation: This file type isn't supported.`
     );
   }
-
-  const userId = zoteroItem?.library?.id;
-  const itemKey = zoteroItem?.key;
-  const metadata = { codeId, functionName };
-  saveMetadataToZotero(userId, itemKey, metadata);
-
-  vscode.window.showInformationMessage(
-    `Sci2Code: Inserted citation for "${titleOfItem}".`
-  );
 };
