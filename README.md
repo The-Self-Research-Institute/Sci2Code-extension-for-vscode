@@ -19,39 +19,45 @@ You can install the extension from within Visual Studio Code or download it from
 ## Get Started
 To get started using the extension, open any Javascript(.js), Typescript(.ts), JavascriptXML(.jsx), TypescriptXML(.tsx), python(.py), Julia(.jl), and R(.r) file.
 
-### Features
+## Key Features
 
-- This extension allows to connect VsCode with Zotero.
-- Cite Reference from Zotero to Source Code.
-- This extension works in JavaScript (.js), TypeScript (.ts), JavaScript XML (.jsx), TypeScript XML (.tsx), Python (.py), Julia (.jl), and R (.r) files.
-- This extension supports searching documents with Title, DOI, ISBN and ISSN.
-- The suggestions for Zotero document trigger when pressing:
-  - `/**` for **JavaScript** and **TypeScript** files  
-  - `"""` for **Python** files  
-  - `"""` for **Julia** files  
-  - `#'` for **R** files
+Sci2Code has been updated to be more powerful and intuitive:
 
-- After choosing the document from suggestion the extension generate a unique codeId and create a jsDoc comment or pyDoc for the function with the details about zotero document:
+- **Multiple Ways to Cite**: Insert citations however you prefer.
+    - **Command Palette**: Trigger a searchable list of your Zotero items anytime.
+    - **Interactive Sidebar**: Browse, search, and filter your entire Zotero library and insert citations with a single click.
+    - **Comment Triggers**: For rapid citation, type a comment prefix (like `"""` or `/**`) to get intelligent suggestions.
+- **Context-Aware Help**: The status bar now tells you if your Zotero API key is configured correctly and provides quick access to settings or the citation picker.
+- **Fully Configurable**:
+    - **Custom Triggers**: Don't like the default comment triggers? Change them or add your own for any language in the settings.
+    - **Custom Templates**: Take full control over the citation format. Use placeholders to include any data from your Zotero item, such as title, authors, DOI, or abstract note, and format it to match any documentation standard (JSDoc, Doxygen, etc.).
 
-```
-/**
- * @ZoteroArticleIDs: ZOTERO_ARTICLE_ID
- * @ZoteroArticleNames: ZOTERO_ARTICLE_NAME
- * @ZoteroitemType: ZOTERO_ARTICLE_TYPE
- * @ZoteroArticleURLs: ZOTERO_ARTICLE_URL
- * @CodeID: CODE_ID
- */
-async function calculateDifference(c,b){
+## How to Use
 
-}
-```
+1.  **Install** the extension from the [Visual Studio Code Marketplace]().
+2.  **Configure your API Key**:
+    - Open your Zotero settings on the web and create a new private API key with read/write access.
+    - In VS Code, open Settings (`Ctrl+,`), search for "Sci2Code", and paste your key into the `sci2code.apiKey` field.
+    - The status bar icon will update to `$(zap) Zotero: Ready`.
+3.  **Insert a Citation**: Choose your preferred method.
 
-- After creating the jsDoc comment the extension adds a new tag to document in zotero with the information containing codeId and functionName: 
-```
-{"codeId":CODE_ID,"functionName":"calculateDifference"}
-```
+    - **Option A: Using the Command Palette**
+        1. Open the Command Palette (`Ctrl+Shift+P`).
+        2. Type and select **"Sci2Code: Insert Zotero Citation"**.
+        3. Search for and select the reference you wish to cite.
 
-![Sci2Code Extension Demo](resources/Features.gif)
+    - **Option B: Using the Zotero Sidebar**
+        1. Click the Zotero icon in the Activity Bar.
+        2. Use the search and filter tools to find your reference.
+        3. Click the "insert citation" icon next to the item in the list.
+
+    - **Option C: Using Comment Triggers**
+        1. In a supported file (e.g., Python, JavaScript, R), type a trigger prefix like `"""`, `/**`, or `#'` above a function.
+        2. A suggestion list of your Zotero items will appear. Select one to insert the citation.
+
+## Citation Example
+
+After choosing a document, the extension generates a unique `CodeID` and inserts a comment block using your configured template. 
 
 ## Requirements
 
