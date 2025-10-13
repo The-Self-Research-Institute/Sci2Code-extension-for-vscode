@@ -23,13 +23,15 @@
     "Other"
   ],
   "activationEvents": [
+    "onCommand:sci2code.openSettings",
     "onCommand:sci2code.insertZoteroCitation",
     "onCommand:sci2code.logout",
     "onCommand:zotero.refresh",
     "onCommand:zotero.search",
     "onCommand:zotero.clearFilter",
     "onView:zotero-documents",
-    "onView:zotero-account"
+    "onView:zotero-account",
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "browser": "./dist/web/extension.js",
@@ -45,18 +47,28 @@
         "default": ["\"\"\"", "#", "#'", "/**"],
         "description": "Global trigger characters/strings"
       },
-      "sci2code.templates": {
+   "sci2code.templates": {
         "type": "object",
-        "description": "Define custom documentation templates for each language. Use the placeholders below to insert data from Zotero and the current code context.\n\n**Available Zotero Placeholders:**\n- `${zotero.title}`: The title of the item.\n- `${zotero.creators}`: A comma-separated list of authors/creators.\n- `${zotero.DOI}`: The Digital Object Identifier.\n- `${zotero.ISBN}`: The International Standard Book Number.\n- `${zotero.ISSN}`: The International Standard Serial Number.\n- `${zotero.itemType}`: The type of the Zotero item (e.g., journalArticle).\n- `${zotero.date}`: The publication date.\n- `${zotero.publicationTitle}`: The title of the journal or book.\n- `${zotero.url}`: The URL link to the item.\n- `${zotero.key}`: The unique Zotero item key.\n\n**Available Code Placeholders:**\n- `${code.id}`: The unique ID generated for the code-reference link.\n- `${code.functionName}`: The name of the function being documented.",
+        "description": "Customize the documentation snippets that are inserted into your code.\n\n**How It Works**:\nThe key is a VS Code Language ID (e.g., `python`) and the value is an array of strings, where each string is a new line.\n\n**Available Placeholders**:\n\n**Common Placeholders**:\n- `${zotero.title}`: The main title of the item.\n- `${zotero.creators}`: A comma-separated list of authors.\n- `${zotero.date}`: The publication year.\n- `${zotero.DOI}`: The Digital Object Identifier.\n- `${zotero.publicationTitle}`: The title of the journal or book.\n- `${zotero.url}`: The URL link to the item.\n- `${zotero.itemType}`: The type of Zotero item (e.g., 'journalArticle').\n\n**All Placeholders**:\nYou can use any field from the Zotero item's `data` object. Common examples include:\n- `${zotero.ISBN}`\n- `${zotero.ISSN}`\n- `${zotero.volume}`\n- `${zotero.issue}`\n- `${zotero.pages}`\n- `${zotero.abstractNote}`\n- `${zotero.key}` (The unique Zotero item key)\n\n**Code Context**:\n- `${code.id}`: The unique ID linking the code to the Zotero item.\n- `${code.functionName}`: The name of the function being documented.",
         "default": {
-          "default": "/**\n * @Title: ${zotero.title}\n * @Authors: ${zotero.creators}\n * @DOI: ${zotero.DOI}\n * @CodeID: ${code.id}\n */",
-          "python": "\"\"\"\nTitle: ${zotero.title}\nAuthors: ${zotero.creators}\nDOI: ${zotero.DOI}\nCodeID: ${code.id}\n\"\"\"",
-          "r": "#' @Title ${zotero.title}\n#' @Author ${zotero.creators}\n#' @DOI ${zotero.DOI}\n#' @CodeID ${code.id}",
-          "julia": "\"\"\"\n    Brief description\n\n    # Metadata\n    - **Title**: ${zotero.title}\n    - **Authors**: ${zotero.creators}\n    - **DOI**: ${zotero.DOI}\n    - **CodeID**: ${code.id}\n\"\"\""
-        },
-        "additionalProperties": {
-          "type": "string",
-          "description": "Template for a specific language ID. See the main description for a full list of available placeholders."
+          "default": [
+            "/**",
+            " * @Title: ${zotero.title}",
+            " * @Authors: ${zotero.creators}",
+            " * @DOI: ${zotero.DOI}",
+            " *",
+            " * @CodeID: ${code.id}",
+            " */"
+          ],
+          "python": [
+            "\"\"\"",
+            "Title: ${zotero.title}",
+            "Authors: ${zotero.creators}",
+            "DOI: ${zotero.DOI}",
+            "",
+            "CodeID: ${code.id}",
+            "\"\"\""
+          ]
         }
       },
       "sci2code.languageSpecificTriggers": {
@@ -96,9 +108,14 @@
   },
     "commands": [
       {
+        "command": "sci2code.openSettings",
+        "title": "Sci2Code: Open Settings"
+      },
+      {
         "command": "sci2code.insertZoteroCitation",
         "title": "Sci2Code: Insert Zotero Citation"
       },
+      
        {
         "command": "sci2code.logout",
         "title": "Sci2Code: Logout"

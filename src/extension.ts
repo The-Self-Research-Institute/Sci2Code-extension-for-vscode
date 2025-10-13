@@ -10,9 +10,12 @@ import {
   registerCompletion,
   triggerPatternManager,
 } from "./features/docCompletion";
+import { contextService } from "./services/contextService";
+import { ZOTERO_CONTEXT } from "./system/constants";
+import { Sci2CodeAPI, CitationItem } from "./api/types";
+import { getZoteroItemTitle } from "./utils/zotero.utils";
 
 let zoteroStatusItem: vscode.StatusBarItem;
-
 let completionProviders: vscode.Disposable[] = [];
 
 export function activate(context: vscode.ExtensionContext) {
@@ -66,6 +69,184 @@ export function activate(context: vscode.ExtensionContext) {
 
   registerStaticCommands(context, sidebarProvider, activateSession);
   registerCompletionProviders(context);
+
+  // Export Public API for other extensions (e.g., OntoCode)
+  const api: Sci2CodeAPI = {
+    getZoteroLibrary: async () => {
+      const items = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS);
+      return (items || []).filter((item: any) => item.data.itemType !== 'note');
+    },
+
+    getZoteroItem: async (key: string) => {
+      const items = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS);
+      if (!items) return null;
+      return items.find((item: any) => item.key === key) || null;
+    },
+
+    getCitationMetadata: async (key: string) => {
+      const item = await api.getZoteroItem(key);
+      if (!item) return null;
+
+      const citation: CitationItem = {
+        key: item.key,
+        title: item.data.title || 'Untitled',
+        creators: item.data.creators || [],
+        date: item.data.date || '',
+        doi: item.data.DOI,
+        url: item.links?.alternate?.href,
+        itemType: item.data.itemType,
+        abstractNote: item.data.abstractNote,
+        publicationTitle: item.data.publicationTitle,
+        volume: item.data.volume,
+        issue: item.data.issue,
+        pages: item.data.pages,
+        publisher: item.data.publisher,
+        tags: item.data.tags
+      };
+
+      return citation;
+    },
+
+    formatCitationForOntology: async (key: string, format: 'turtle' | 'rdfxml' = 'turtle') => {
+      const citation = await api.getCitationMetadata(key);
+      if (!citation) throw new Error(`Citation with key ${key} not found`);
+
+      if (format === 'turtle') {
+        return formatAsTurtle(citation);
+      } else {
+        return formatAsRDFXML(citation);
+      }
+    },
+
+    isAuthenticated: async () => {
+      const items = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS);
+      return Array.isArray(items) && items.length > 0;
+    }
+  };
+
+  return api;
+}
+
+function formatAsTurtle(citation: CitationItem): string {
+  const lines = [
+    `# Citation for: ${citation.title}`,
+    `[ a prov:Entity ;`
+  ];
+
+  lines.push(`  dc:title "${escapeString(citation.title)}" ;`);
+
+  if (citation.date) {
+    const dateStr = formatDate(citation.date);
+    lines.push(`  dc:issued "${dateStr}"^^xsd:date ;`);
+  }
+
+  if (citation.creators && citation.creators.length > 0) {
+    citation.creators.forEach((creator, idx) => {
+      const name = `${creator.firstName} ${creator.lastName}`.trim();
+      const comma = idx < citation.creators.length - 1 ? ' ,' : ' ;';
+      lines.push(`  prov:wasAttributedTo [ foaf:name "${escapeString(name)}" ]${comma}`);
+    });
+  }
+
+  if (citation.doi) {
+    lines.push(`  dc:identifier <http://dx.doi.org/${citation.doi}> ;`);
+  } else if (citation.url) {
+    lines.push(`  dc:source <${citation.url}> ;`);
+  }
+
+  if (citation.abstractNote) {
+    lines.push(`  dc:description "${escapeString(citation.abstractNote)}" ;`);
+  }
+
+  if (citation.publicationTitle) {
+    lines.push(`  dc:isPartOf "${escapeString(citation.publicationTitle)}" ;`);
+  }
+
+  if (citation.itemType) {
+    lines.push(`  dc:type "${citation.itemType}" ;`);
+  }
+
+  // Remove trailing semicolon from last line
+  const lastLine = lines[lines.length - 1];
+  lines[lines.length - 1] = lastLine.replace(/\s;$/, '');
+
+  lines.push(`] .`);
+  return lines.join('\n');
+}
+
+function formatAsRDFXML(citation: CitationItem): string {
+  const lines = [
+    `<!-- Citation for: ${citation.title} -->`,
+    `<rdf:Description>`,
+    `  <rdf:type rdf:resource="http://www.w3.org/ns/prov#Entity"/>`,
+    `  <dc:title>${escapeXML(citation.title)}</dc:title>`
+  ];
+
+  if (citation.date) {
+    const dateStr = formatDate(citation.date);
+    lines.push(`  <dc:issued rdf:datatype="http://www.w3.org/2001/XMLSchema#date">${dateStr}</dc:issued>`);
+  }
+
+  if (citation.creators && citation.creators.length > 0) {
+    citation.creators.forEach(creator => {
+      const name = `${creator.firstName} ${creator.lastName}`.trim();
+      lines.push(`  <prov:wasAttributedTo>`);
+      lines.push(`    <foaf:Person>`);
+      lines.push(`      <foaf:name>${escapeXML(name)}</foaf:name>`);
+      lines.push(`    </foaf:Person>`);
+      lines.push(`  </prov:wasAttributedTo>`);
+    });
+  }
+
+  if (citation.doi) {
+    lines.push(`  <dc:identifier rdf:resource="http://dx.doi.org/${citation.doi}"/>`);
+  } else if (citation.url) {
+    lines.push(`  <dc:source rdf:resource="${citation.url}"/>`);
+  }
+
+  if (citation.abstractNote) {
+    lines.push(`  <dc:description>${escapeXML(citation.abstractNote)}</dc:description>`);
+  }
+
+  if (citation.publicationTitle) {
+    lines.push(`  <dc:isPartOf>${escapeXML(citation.publicationTitle)}</dc:isPartOf>`);
+  }
+
+  if (citation.itemType) {
+    lines.push(`  <dc:type>${citation.itemType}</dc:type>`);
+  }
+
+  lines.push(`</rdf:Description>`);
+  return lines.join('\n');
+}
+
+function escapeString(str: string): string {
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+function escapeXML(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function formatDate(date: string): string {
+  // Try to parse various date formats and return ISO format
+  const parsed = new Date(date);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  // If parsing fails, try to extract year
+  const yearMatch = date.match(/\d{4}/);
+  return yearMatch ? `${yearMatch[0]}-01-01` : date;
 }
 
 function registerStaticCommands(
@@ -127,6 +308,7 @@ function registerStaticCommands(
     )
   );
 }
+
 function registerCompletionProviders(context: vscode.ExtensionContext) {
   console.log("Registering completion providers with current configuration...");
   disposeCompletionProviders();
@@ -138,7 +320,6 @@ function registerCompletionProviders(context: vscode.ExtensionContext) {
         { language: "typescriptreact", scheme: "file" },
         { language: "javascriptreact", scheme: "file" },
         { language: "typescript", scheme: "file" },
-        { language: "javascript", scheme: "file" },
         { language: "javascript", scheme: "file" },
       ],
     },
