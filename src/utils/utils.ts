@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 export function generateSha256(ascii: string): string {
   function rightRotate(value: number, amount: number): number {
     return (value >>> amount) | (value << (32 - amount));
@@ -25,7 +27,9 @@ export function generateSha256(ascii: string): string {
   }
 
   ascii += "\x80";
-  while ((ascii.length % 64) - 56) ascii += "\x00";
+  while ((ascii.length % 64) - 56) {
+    ascii += "\x00";
+  }
 
   for (let i = 0; i < ascii.length; i++) {
     const j = ascii.charCodeAt(i);
@@ -89,3 +93,243 @@ export function generateSha256(ascii: string): string {
 
   return result;
 }
+
+export function getTriggerCharacters(languageId: string): string[] {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return ["#"];
+  }
+
+  const document = editor.document;
+  const config = vscode.workspace.getConfiguration("sci2code", document.uri);
+  const triggers = new Set<string>();
+
+  console.log(`Getting triggers for language: ${languageId}`);
+
+  // 1. Get global triggers from user settings
+  const globalTriggers = config.get<string[]>("triggers");
+  if (globalTriggers) {
+    globalTriggers.forEach((trigger) => {
+      if (trigger) {
+        triggers.add(trigger.charAt(trigger.length - 1));
+      }
+    });
+    console.log("Global triggers:", globalTriggers);
+  }
+
+  const languageSpecificConfig = config.get<Record<string, string[]>>(
+    "languageSpecificTriggers"
+  );
+  console.log("Language-specific triggers config:", languageSpecificConfig, languageId);
+  if (languageSpecificConfig && languageSpecificConfig[languageId]) {
+    languageSpecificConfig[languageId].forEach((trigger) => {
+      if (trigger) {
+        triggers.add(trigger.charAt(trigger.length - 1));
+      }
+    });
+    console.log(
+      `Language-specific triggers for ${languageId}:`,
+      languageSpecificConfig[languageId]
+    );
+  }
+
+  const defaultLanguageTriggers = getDefaultTriggersForLanguage(languageId);
+  defaultLanguageTriggers.forEach((trigger) => {
+    if (trigger) {
+      triggers.add(trigger.charAt(0));
+    }
+  });
+
+  const finalTriggers = [...triggers];
+  console.log(`Final trigger characters for ${languageId}:`, finalTriggers);
+  return finalTriggers;
+}
+
+function getDefaultTriggersForLanguage(languageId: string): string[] {
+  const languageDefaults: Record<string, string[]> = {
+    javascript: ["/**", "//", '"""'],
+    typescript: ["/**", "//", '"""'],
+    python: ['"""', "'''", "#"],
+    java: ["/**", "//", '"""'],
+    csharp: ["///", "//", '"""'],
+    cpp: ["/**", "//", '"""'],
+    c: ["/**", "//", '"""'],
+    go: ["//", '"""'],
+    rust: ["///", "//", '"""'],
+    php: ["/**", "//", "#", '"""'],
+    ruby: ["#", '"""'],
+    swift: ["///", "//", '"""'],
+    kotlin: ["/**", "//", '"""'],
+    scala: ["/**", "//", '"""'],
+    r: ["#", '"""'],
+    matlab: ["%", '"""'],
+    sql: ["--", "/*", '"""'],
+    html: ["<!--", '"""'],
+    css: ["/*", '"""'],
+    markdown: ["#", '"""'],
+    yaml: ["#", '"""'],
+    json: ['"""'],
+  };
+
+  return languageDefaults[languageId] || ['"""', "#", "/**"];
+}
+
+function isPotentiallyValidDocCompletionPosition(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  languageId: string = document.languageId
+): boolean {
+  const config = vscode.workspace.getConfiguration("sci2code");
+
+  let configuredTriggers: string[] = [];
+
+  const languageSpecificTriggers = config.get<Record<string, string[]>>(
+    "languageSpecificTriggers"
+  );
+  if (languageSpecificTriggers && languageSpecificTriggers[languageId]) {
+    configuredTriggers = languageSpecificTriggers[languageId];
+    console.log(
+      `Using language-specific triggers for '${languageId}':`,
+      configuredTriggers
+    );
+  } else {
+    const globalTriggers = config.get<string[]>("triggers");
+    if (globalTriggers && globalTriggers.length > 0) {
+      configuredTriggers = globalTriggers;
+      console.log(
+        `Using global triggers for '${languageId}':`,
+        configuredTriggers
+      );
+    } else {
+      configuredTriggers = getDefaultTriggersForLanguage(languageId);
+      console.log(
+        `Using default triggers for '${languageId}':`,
+        configuredTriggers
+      );
+    }
+  }
+
+  if (!configuredTriggers || configuredTriggers.length === 0) {
+    configuredTriggers = ["/**"];
+    console.log(
+      `Using hardcoded fallback triggers for '${languageId}':`,
+      configuredTriggers
+    );
+  }
+
+  const line = document.lineAt(position.line).text;
+  const prefix = line.slice(0, position.character);
+  console.log(position.character, prefix, 'position')
+
+  const matchesTrigger = configuredTriggers.some((trigger) => {
+    if (!trigger || trigger.length === 0) {
+      return false;
+    }
+
+    return checkTriggerMatch(prefix, trigger);
+  });
+
+  if (!matchesTrigger) {
+    console.log(
+      `No trigger match found. Prefix: "${prefix}", Available triggers:`,
+      configuredTriggers
+    );
+    return false;
+  }
+
+  const suffix = line.slice(position.character);
+  const isValidSuffix = isValidDocumentationSuffix(suffix, languageId);
+
+  console.log(
+    `Trigger matched. Prefix: "${prefix}", Suffix: "${suffix}", Valid: ${isValidSuffix}`
+  );
+  return isValidSuffix;
+}
+
+
+function checkTriggerMatch(prefix: string, trigger: string): boolean {
+  const escapedTrigger = trigger.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+  if (trigger.startsWith('"""') || trigger.startsWith("'''")) {
+    const regex = new RegExp(`^\\s*${escapedTrigger}\\s*$`);
+    return regex.test(prefix);
+  } else if (trigger.startsWith("/**")) {
+    const regex = new RegExp(`^\\s*${escapedTrigger}\\s*$`);
+    return regex.test(prefix);
+  } else if (trigger.startsWith("//") || trigger.startsWith("#")) {
+    const regex = new RegExp(`^\\s*${escapedTrigger}\\s*$`);
+    return regex.test(prefix);
+  } else if (trigger === '"' || trigger === "'" || trigger === "`") {
+    return prefix.trim() === trigger;
+  } else {
+    const regex = new RegExp(`^\\s*${escapedTrigger}\\s*$`);
+    return regex.test(prefix);
+  }
+}
+
+function isValidDocumentationSuffix(
+  suffix: string,
+  languageId: string
+): boolean {
+  switch (languageId) {
+    case "javascript":
+    case "typescript":
+    case "java":
+    case "csharp":
+    case "cpp":
+    case "c":
+      return /^\s*(\*+\/)?\s*$/.test(suffix);
+
+    case "python":
+    case "julia":
+      return /^\s*("""|\'\'\')?\s*$/.test(suffix);
+
+    case "r":
+    case "ruby":
+    case "shell":
+    case "bash":
+    case "yaml":
+    case "markdown":
+      return /^\s*$/.test(suffix);
+
+    default:
+      return /^\s*(\*+\/|"""|\'\'\'|\*+)?\s*$/.test(suffix);
+  }
+}
+
+
+function getTriggersForDocument(document: vscode.TextDocument): string[] {
+  const config = vscode.workspace.getConfiguration("sci2code");
+  const languageId = document.languageId;
+
+  let triggers: string[] = [];
+
+  const languageSpecificTriggers = config.get<Record<string, string[]>>(
+    "languageSpecificTriggers"
+  );
+  if (languageSpecificTriggers && languageSpecificTriggers[languageId]) {
+    triggers = languageSpecificTriggers[languageId];
+  } else {
+    const globalTriggers = config.get<string[]>("triggers");
+    if (globalTriggers && globalTriggers.length > 0) {
+      triggers = globalTriggers;
+    } else {
+      triggers = getDefaultTriggersForLanguage(languageId);
+    }
+  }
+
+  const triggerChars = triggers
+    .filter((trigger) => trigger && trigger.length > 0)
+    .map((trigger) => trigger.charAt(0));
+
+  return [...new Set(triggerChars)];
+}
+
+
+export {
+  isPotentiallyValidDocCompletionPosition,
+  checkTriggerMatch,
+  isValidDocumentationSuffix,
+  getDefaultTriggersForLanguage,
+  getTriggersForDocument,
+};

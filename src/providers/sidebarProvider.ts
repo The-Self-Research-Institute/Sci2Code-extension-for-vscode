@@ -3,80 +3,147 @@ import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { getZoteroItemTitle } from "../utils/zotero.utils";
 
+type ZoteroItem = any;
+
+/**
+ * Represents an item in the sidebar. It can be a top-level group (like "Journal Article")
+ * or a specific Zotero reference under that group.
+ */
+export class SidebarItem extends vscode.TreeItem {
+  public children: SidebarItem[] | undefined;
+  public zoteroItem?: ZoteroItem;
+
+  constructor(
+    public readonly label: string,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    children?: SidebarItem[],
+    zoteroItem?: ZoteroItem
+  ) {
+    super(label, collapsibleState);
+    this.children = children;
+    this.zoteroItem = zoteroItem;
+
+    // Set icons and commands for different item types
+    if (zoteroItem) {
+      this.iconPath = new vscode.ThemeIcon("file-text");
+      this.contextValue = 'zoteroItem';
+      // Command to insert citation when this item is clicked
+      this.command = {
+        command: "sci2code.insertCitationFromSidebar",
+        title: "Insert Citation",
+        arguments: [this.zoteroItem],
+      };
+    } else if (children) {
+      this.iconPath = new vscode.ThemeIcon("folder");
+    }
+  }
+}
+
 export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<
-    SidebarItem | undefined | void
-  > = new vscode.EventEmitter<SidebarItem | undefined | void>();
-  readonly onDidChangeTreeData: vscode.Event<SidebarItem | undefined | void> =
-    this._onDidChangeTreeData.event;
+  private _onDidChangeTreeData: vscode.EventEmitter<SidebarItem | undefined | null | void> = new vscode.EventEmitter<SidebarItem | undefined | null | void>();
+  readonly onDidChangeTreeData: vscode.Event<SidebarItem | undefined | null | void> = this._onDidChangeTreeData.event;
+
+  // Holds the current search term for filtering
+  private searchTerm: string = '';
 
   getTreeItem(element: SidebarItem): vscode.TreeItem {
     return element;
   }
 
   getChildren(element?: SidebarItem): Thenable<SidebarItem[]> {
-    return Promise.resolve(this.getSidebarItems());
+    // If we are getting children of a specific element, return its children
+    if (element) {
+      return Promise.resolve(element.children || []);
+    }
+    
+    // Otherwise, build the entire tree from the root
+    return Promise.resolve(this.buildTree());
   }
+  
+  /**
+   * Builds the entire tree structure from Zotero items, applying any active filters.
+   */
+  private buildTree(): SidebarItem[] {
+    const zoteroItems = (contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS) as ZoteroItem[]) || [];
 
-  refresh(): void {
-    this._onDidChangeTreeData.fire(undefined);
-  }
-
-  private getSidebarItems(): SidebarItem[] {
-    const zoteroItems = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS);
-    const groupedItems: { [key: string]: SidebarItem[] } = {};
-
-    // Group items by their itemType
-    if (zoteroItems?.length > 0) {
-      zoteroItems.forEach((zoteroItem: any) => {
-        const itemType = zoteroItem.data?.itemType; // Optional chaining to safely access itemType
-        const titleOrNote = getZoteroItemTitle(zoteroItem);
-
-        // Ensure we handle missing itemType properly
-        if (!itemType) {
-          return; // Skip this item if it doesn't have a valid itemType
-        }
-
-        // Create a SidebarItem for the current zoteroItem
-        const sidebarItem = new SidebarItem(
-          `${titleOrNote} | ${zoteroItem?.links?.alternate?.href}`,
-          vscode.TreeItemCollapsibleState.None
-        );
-
-        // Group by itemType
-        if (!groupedItems[itemType]) {
-          groupedItems[itemType] = []; // Initialize the array for this itemType
-        }
-        groupedItems[itemType].push(sidebarItem); // Add the SidebarItem to the corresponding group
-      });
-
-      // Create main SidebarItems for each itemType
-      const combinedItems: SidebarItem[] = [];
-      for (const [type, items] of Object.entries(groupedItems)) {
-        const groupLabel = type.charAt(0).toUpperCase() + type.slice(1); // Capitalize itemType for display
-        const groupItem = new SidebarItem(
-          groupLabel,
-          vscode.TreeItemCollapsibleState.Collapsed
-        );
-        combinedItems.push(groupItem); // Add group label item
-
-        // Add the individual items to the combined items
-        combinedItems.push(...items);
-      }
-
-      return combinedItems;
+    // Context-sensitive help: No items loaded
+    if (zoteroItems.length === 0 && !this.searchTerm) {
+        const infoItem = new SidebarItem("No Zotero items. Please log in or refresh.", vscode.TreeItemCollapsibleState.None);
+        infoItem.iconPath = new vscode.ThemeIcon("info");
+        return [infoItem];
     }
 
-    return [];
-  }
-}
+    // Apply search filter
+    let filteredItems = zoteroItems;
+    if (this.searchTerm) {
+        const lowerCaseSearchTerm = this.searchTerm.toLowerCase();
+        filteredItems = zoteroItems.filter(item => {
+            const title = getZoteroItemTitle(item).toLowerCase();
+            return title.includes(lowerCaseSearchTerm);
+        });
+    }
 
-export class SidebarItem extends vscode.TreeItem {
-  constructor(
-    public readonly label: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly command?: vscode.Command // Can be included or omitted as needed
-  ) {
-    super(label, collapsibleState);
+    // Context-sensitive help: Search returned nothing
+    if (filteredItems.length === 0 && this.searchTerm) {
+        const infoItem = new SidebarItem(`No results for "${this.searchTerm}"`, vscode.TreeItemCollapsibleState.None);
+        infoItem.iconPath = new vscode.ThemeIcon("search-stop");
+        return [infoItem];
+    }
+
+    // Group the filtered items by itemType
+    const groupedItems = new Map<string, ZoteroItem[]>();
+    for (const item of filteredItems) {
+      const itemType = item.data?.itemType || "Uncategorized";
+      if (!groupedItems.has(itemType)) {
+        groupedItems.set(itemType, []);
+      }
+      groupedItems.get(itemType)!.push(item);
+    }
+    
+    // Convert the groups and their children into SidebarItems
+    const tree: SidebarItem[] = [];
+    for (const [itemType, items] of groupedItems.entries()) {
+        const children = items.map(item => new SidebarItem(
+            getZoteroItemTitle(item),
+            vscode.TreeItemCollapsibleState.None,
+            undefined, // Leaf nodes have no children
+            item       // Attach the full Zotero item
+        ));
+        
+        const groupLabel = `${itemType} (${items.length})`;
+        tree.push(new SidebarItem(
+            groupLabel,
+            vscode.TreeItemCollapsibleState.Expanded, // Groups start expanded
+            children
+        ));
+    }
+    return tree;
+  }
+  
+  public refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+  
+  /**
+   * Public method to trigger the search UI.
+   */
+  public async search(): Promise<void> {
+    const result = await vscode.window.showInputBox({
+        placeHolder: 'Search your Zotero library by title...',
+        value: this.searchTerm,
+    });
+
+    if (result !== undefined) {
+        this.searchTerm = result;
+        this.refresh();
+    }
+  }
+
+  /**
+   * Public method to clear the search filter.
+   */
+  public clearFilter(): void {
+    this.searchTerm = '';
+    this.refresh();
   }
 }

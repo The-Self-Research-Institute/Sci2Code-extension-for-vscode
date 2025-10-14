@@ -156,7 +156,9 @@ export class ZoteroAuthenticationProvider
 
   // This function is called when the end user signs out of the account.
   async removeSession(_sessionId: string): Promise<void> {
-    const token = await this.currentToken;
+    const token = await this.secretStorage.get(
+      ZoteroAuthenticationProvider.secretKey
+    );
     if (!token) {
       return;
     }
