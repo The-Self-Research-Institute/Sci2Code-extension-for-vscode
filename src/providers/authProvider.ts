@@ -34,7 +34,7 @@ class ZoteroSession implements AuthenticationSession {
 export class ZoteroAuthenticationProvider
   implements AuthenticationProvider, Disposable {
   static id = "zoteropat";
-  private static secretKey = "ZoteroPAT";
+  static secretKey = "ZoteroPAT";
 
   // this property is used to determine if the token has been changed in another window of VS Code.
   // It is used in the checkForUpdates function.
@@ -118,14 +118,15 @@ export class ZoteroAuthenticationProvider
     this.ensureInitialized();
     let token = await this.cacheTokenFromStorage();
 
-    // If no token in secret storage, check the configuration setting
-    if (!token) {
-      const { workspace } = await import('vscode');
-      const config = workspace.getConfiguration('sci2code');
-      const apiKeyFromSettings = config.get<string>('apiKey');
+    // Always check the configuration setting to see if it's been updated
+    const { workspace } = await import('vscode');
+    const config = workspace.getConfiguration('sci2code');
+    const apiKeyFromSettings = config.get<string>('apiKey');
 
-      if (apiKeyFromSettings && apiKeyFromSettings.trim()) {
-        // Store the API key from settings into secret storage
+    // If there's an API key in settings
+    if (apiKeyFromSettings && apiKeyFromSettings.trim()) {
+      // If it's different from the stored token, update the storage
+      if (apiKeyFromSettings !== token) {
         await this.secretStorage.store(
           ZoteroAuthenticationProvider.secretKey,
           apiKeyFromSettings
@@ -133,10 +134,11 @@ export class ZoteroAuthenticationProvider
         token = apiKeyFromSettings;
         this.currentToken = Promise.resolve(token);
       }
+    } else if (!token) {
+      // No key in settings and no stored token
     }
 
     const result = token ? [new ZoteroSession(token)] : [];
-    console.log('[Sci2Code AuthProvider] Returning sessions, count:', result.length);
     return result;
   }
 

@@ -56,15 +56,29 @@ export function activate(context: vscode.ExtensionContext) {
   zoteroStatusItem.show();
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration("sci2code.apiKey")) {
         updateStatusBar();
         // Re-authenticate when API key changes in settings
         const config = vscode.workspace.getConfiguration("sci2code");
         const apiKey = config.get<string>("apiKey");
+        
         if (apiKey && apiKey.trim()) {
-          // Trigger re-authentication with the new key
-          activateSession(false);
+          // Update the secret storage with the new API key
+          const authProvider = new ZoteroAuthenticationProvider(context.secrets);
+          await context.secrets.store(ZoteroAuthenticationProvider.secretKey, apiKey);
+          
+          // Clear old context and trigger re-authentication with the new key
+          contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+          contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+          
+          // Re-authenticate with new key
+          await activateSession(false);
+        } else {
+          // If API key is cleared, logout
+          contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+          contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+          sidebarProvider.refresh();
         }
       }
 
