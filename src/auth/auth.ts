@@ -19,7 +19,10 @@ export const generateSession = async (createIfNone: boolean) => {
       const zoteroUserDetailsReq = await getUserDetails(session.accessToken);
 
       if (!zoteroUserDetailsReq.ok) {
-        throw new Error(zoteroUserDetailsReq.statusText);
+        const errorMsg = zoteroUserDetailsReq.status === 403
+          ? "Invalid API key. Please check your Zotero API key and ensure it has the correct permissions."
+          : `Failed to connect to Zotero API: ${zoteroUserDetailsReq.statusText}`;
+        throw new Error(errorMsg);
       }
 
       const zoteroUserDetailsRes = (await zoteroUserDetailsReq.json()) as {
@@ -40,7 +43,7 @@ export const generateSession = async (createIfNone: boolean) => {
       );
 
       if (!zoteroCollections.ok) {
-        throw new Error(zoteroUserDetailsReq.statusText);
+        throw new Error(`Failed to fetch Zotero items: ${zoteroCollections.statusText}`);
       }
 
       const zoteroCollectionsRes = await zoteroCollections.json();
@@ -59,9 +62,13 @@ export const generateSession = async (createIfNone: boolean) => {
 
     return { isSessionGenerated: true };
   } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : "Unknown error occurred";
     window.showErrorMessage(
-      "Failed to connect to zotero. You need to use a API KEY that has access to your zotero account. Please sign out and try again."
+      `Failed to connect to Zotero: ${errorMessage}\n\nPlease verify your API key has read/write access and is correctly configured.`
     );
-    return { isSessionGenerated: true };
+    // Clear the invalid session
+    contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+    contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+    return { isSessionGenerated: false };
   }
 };

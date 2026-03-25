@@ -13,21 +13,85 @@ export function getZoteroItemTitle(zoteroItem: any): string {
     } else if (itemType === "annotation") {
       rawText = zoteroItem.data.annotationText || "Untitled Annotation";
     } else {
-      rawText = zoteroItem.data.title
-        ? `${zoteroItem.data.title} ${
-            zoteroItem?.data?.DOI ? `| ${zoteroItem?.data?.DOI}` : ""
-          } ${zoteroItem?.data?.ISBN ? `| ${zoteroItem?.data?.ISBN}` : ""} ${
-            zoteroItem?.data?.ISSN ? `| ${zoteroItem?.data?.ISSN}` : ""
-          }`
-        : "Untitled Article";
+      // Clean title without concatenating other fields
+      rawText = zoteroItem.data.title || "Untitled Article";
     }
 
     const plainText =
       rawText.replace(/<\/?[^>]+(>|$)/g, "").trim() || "Untitled";
 
-    return limitCharacters(plainText, 75);
+    return limitCharacters(plainText, 100);
   }
   return "Unknown Item";
+}
+
+/**
+ * Formats authors for display
+ */
+export function formatZoteroAuthors(zoteroItem: any): string {
+  if (!zoteroItem?.data?.creators || zoteroItem.data.creators.length === 0) {
+    return "Unknown Authors";
+  }
+
+  const creators = zoteroItem.data.creators;
+  if (creators.length === 1) {
+    const author = creators[0];
+    return `${author.lastName || author.name || "Unknown"}`;
+  } else if (creators.length === 2) {
+    return `${creators[0].lastName || creators[0].name} & ${creators[1].lastName || creators[1].name}`;
+  } else {
+    return `${creators[0].lastName || creators[0].name} et al.`;
+  }
+}
+
+/**
+ * Formats complete citation metadata for display
+ */
+export function formatCitationMetadata(zoteroItem: any): string {
+  const parts: string[] = [];
+
+  const authors = formatZoteroAuthors(zoteroItem);
+  parts.push(authors);
+
+  if (zoteroItem.data.date) {
+    const year = zoteroItem.data.date.match(/\d{4}/)?.[0] || zoteroItem.data.date;
+    parts.push(year);
+  }
+
+  if (zoteroItem.data.publicationTitle) {
+    parts.push(zoteroItem.data.publicationTitle);
+  }
+
+  return parts.join(" • ");
+}
+
+/**
+ * Gets detailed information for citation preview
+ */
+export function getCitationDetail(zoteroItem: any): string {
+  const details: string[] = [];
+
+  if (zoteroItem.data.DOI) {
+    details.push(`DOI: ${zoteroItem.data.DOI}`);
+  }
+
+  if (zoteroItem.data.volume) {
+    details.push(`Vol. ${zoteroItem.data.volume}`);
+  }
+
+  if (zoteroItem.data.issue) {
+    details.push(`Issue ${zoteroItem.data.issue}`);
+  }
+
+  if (zoteroItem.data.pages) {
+    details.push(`pp. ${zoteroItem.data.pages}`);
+  }
+
+  if (details.length > 0) {
+    return details.join(" | ");
+  }
+
+  return zoteroItem.links?.alternate?.href || "";
 }
 
 function limitCharacters(text: string, maxChars: number): string {

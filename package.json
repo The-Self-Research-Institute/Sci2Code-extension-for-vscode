@@ -39,6 +39,12 @@
     "configuration": {
       "title": "Sci2Code",
       "properties": {
+        "sci2code.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Zotero API key with read/write access. Get it from https://www.zotero.org/settings/keys",
+          "order": 0
+        },
         "sci2code.triggers": {
           "type": "array",
           "items": {
@@ -62,6 +68,7 @@
               " * @ZoteroitemType: ${zotero.itemType}",
               " * @ZoteroArticleNames: ${zotero.title}",
               " * @ZoteroArticleURLs: ${zotero.url}",
+              " * @ZoteroDOI: ${zotero.DOI}",
               " * @CodeID: ${code.id}",
               "\"\"\""
             ],
@@ -70,6 +77,7 @@
               " * @ZoteroArticleNames ${zotero.title}",
               " * @ZoteroArticleIDs ${zotero.key}",
               " * @ZoteroArticleURLs ${zotero.url}",
+              " * @ZoteroDOI ${zotero.DOI}",
               " * @CodeID ${code.id}",
               " */"
             ],
@@ -78,6 +86,7 @@
               " * @ZoteroArticleNames ${zotero.title}",
               " * @ZoteroArticleIDs ${zotero.key}",
               " * @ZoteroArticleURLs ${zotero.url}",
+              " * @ZoteroDOI ${zotero.DOI}",
               " * @CodeID ${code.id}",
               " */"
             ],
@@ -85,8 +94,11 @@
               "\"\"\"",
               "Zotero Reference:",
               "    Title: ${zotero.title}",
-              "    Key: ${zotero.key}",
+              "    Authors: ${zotero.creators}",
+              "    Year: ${zotero.date}",
+              "    DOI: ${zotero.DOI}",
               "    URL: ${zotero.url}",
+              "    Key: ${zotero.key}",
               "    CodeID: ${code.id}",
               "\"\"\""
             ],
@@ -96,14 +108,17 @@
               "#' @ZoteroitemType: ${zotero.itemType}",
               "#' @ZoteroArticleNames: ${zotero.title}",
               "#' @ZoteroArticleURLs: ${zotero.url}",
+              "#' @ZoteroDOI: ${zotero.DOI}",
               "#' @CodeID: ${code.id}",
               "#'"
             ],
             "julia": [
               "\"\"\"",
               "Reference: ${zotero.title}",
+              "Authors: ${zotero.creators}",
+              "DOI: ${zotero.DOI}",
+              "URL: ${zotero.url}",
               "Zotero Key: ${zotero.key}",
-              "Zotero URL: ${zotero.url}",
               "Code ID: ${code.id}",
               "\"\"\""
             ]
@@ -177,6 +192,10 @@
       {
         "command": "sci2code.insertZoteroCitation",
         "title": "Sci2Code: Insert Zotero Citation"
+      },
+      {
+        "command": "sci2code.insertManualCitation",
+        "title": "Sci2Code: Insert Manual Citation"
       },
       {
         "command": "sci2code.logout",

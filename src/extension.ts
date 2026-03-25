@@ -5,6 +5,7 @@ import { generateSession } from "./auth/auth";
 import {
   insertCitationCommand,
   insertCitationFromSidebarCommand,
+  insertManualCitationCommand,
 } from "./features/insertCitationCommand";
 import {
   registerCompletion,
@@ -52,6 +53,13 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("sci2code.apiKey")) {
         updateStatusBar();
+        // Re-authenticate when API key changes in settings
+        const config = vscode.workspace.getConfiguration("sci2code");
+        const apiKey = config.get<string>("apiKey");
+        if (apiKey && apiKey.trim()) {
+          // Trigger re-authentication with the new key
+          activateSession(false);
+        }
       }
 
       if (
@@ -297,15 +305,22 @@ function registerStaticCommands(
       "sci2code.insertCitationFromSidebar",
       insertCitationFromSidebarCommand
     ),
+    vscode.commands.registerCommand(
+      "sci2code.insertManualCitation",
+      insertManualCitationCommand
+    ),
     vscode.commands.registerCommand("zotero.search", () =>
       sidebarProvider.search()
     ),
     vscode.commands.registerCommand("zotero.clearFilter", () =>
       sidebarProvider.clearFilter()
     ),
-    vscode.commands.registerCommand("zotero.refresh", () =>
-      sidebarProvider.refresh()
-    )
+    vscode.commands.registerCommand("zotero.refresh", async () => {
+      // Re-authenticate to fetch fresh data from Zotero
+      await activateSession(false);
+      sidebarProvider.refresh();
+      vscode.window.showInformationMessage("Zotero library refreshed.");
+    })
   );
 }
 

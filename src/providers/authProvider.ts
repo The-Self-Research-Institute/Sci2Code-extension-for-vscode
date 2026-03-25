@@ -28,12 +28,11 @@ class ZoteroSession implements AuthenticationSession {
    *
    * @param accessToken The personal access token to use for authentication
    */
-  constructor(public readonly accessToken: string) {}
+  constructor(public readonly accessToken: string) { }
 }
 
 export class ZoteroAuthenticationProvider
-  implements AuthenticationProvider, Disposable
-{
+  implements AuthenticationProvider, Disposable {
   static id = "zoteropat";
   private static secretKey = "ZoteroPAT";
 
@@ -48,7 +47,7 @@ export class ZoteroAuthenticationProvider
     return this._onDidChangeSessions.event;
   }
 
-  constructor(private readonly secretStorage: SecretStorage) {}
+  constructor(private readonly secretStorage: SecretStorage) { }
 
   dispose(): void {
     this.initializedDisposable?.dispose();
@@ -117,10 +116,25 @@ export class ZoteroAuthenticationProvider
     options?: AuthenticationProviderSessionOptions
   ): Promise<AuthenticationSession[]> {
     this.ensureInitialized();
-    const token = await this.cacheTokenFromStorage();
-    // if (token) {
-    //   contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
-    // }
+    let token = await this.cacheTokenFromStorage();
+
+    // If no token in secret storage, check the configuration setting
+    if (!token) {
+      const { workspace } = await import('vscode');
+      const config = workspace.getConfiguration('sci2code');
+      const apiKeyFromSettings = config.get<string>('apiKey');
+
+      if (apiKeyFromSettings && apiKeyFromSettings.trim()) {
+        // Store the API key from settings into secret storage
+        await this.secretStorage.store(
+          ZoteroAuthenticationProvider.secretKey,
+          apiKeyFromSettings
+        );
+        token = apiKeyFromSettings;
+        this.currentToken = Promise.resolve(token);
+      }
+    }
+
     return token ? [new ZoteroSession(token)] : [];
   }
 
