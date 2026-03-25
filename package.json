@@ -34,7 +34,6 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "browser": "./dist/web/extension.js",
   "contributes": {
     "configuration": {
       "title": "Sci2Code",
@@ -190,6 +189,10 @@
         "title": "Sci2Code: Open Settings"
       },
       {
+        "command": "sci2code.showLogs",
+        "title": "Sci2Code: Show Logs"
+      },
+      {
         "command": "sci2code.insertZoteroCitation",
         "title": "Sci2Code: Insert Zotero Citation"
       },
@@ -302,7 +305,8 @@
     "lint:fix": "eslint src --ext ts --fix",
     "test": "vscode-test",
     "test-web": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=./",
-    "compile-web": "webpack --config webpack.config.js --mode development --watch"
+    "compile-web": "webpack --config webpack.config.js --mode development --watch",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.9",

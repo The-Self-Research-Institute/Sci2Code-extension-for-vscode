@@ -18,9 +18,15 @@ import { getZoteroItemTitle } from "./utils/zotero.utils";
 
 let zoteroStatusItem: vscode.StatusBarItem;
 let completionProviders: vscode.Disposable[] = [];
+let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Extension "Sci2Code" is now active!');
+
+  // Create output channel for debugging
+  outputChannel = vscode.window.createOutputChannel("Sci2Code");
+  context.subscriptions.push(outputChannel);
+  outputChannel.appendLine('Sci2Code extension activated');
 
   const sidebarProvider = new SidebarProvider();
   vscode.window.registerTreeDataProvider("zotero-documents", sidebarProvider);

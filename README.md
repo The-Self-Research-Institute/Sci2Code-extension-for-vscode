@@ -23,11 +23,11 @@
   <img src="resources/Features.gif" alt="Sci2Code Demo" width="100%" />
 </p>
 
-- 🔗 **Link Zotero items** directly into your code as references.
-- ✍️ **Insert citations** into JavaScript, Python, Julia, and R documentation comments.
-- ✏️ **Manual citations**: Add citations for sources not in your Zotero library.\* 📤 **Export citations**: Export to BibTeX, RIS, JSON, or plain text formats.- 📚 **Browse and search** your Zotero library from within VS Code.
-- 🔄 **Sync your code** with your research for better traceability.
-- ✨ **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
+- **Link Zotero items** directly into your code as references.
+- **Insert citations** into JavaScript, Python, and R documentation comments.
+- **Manual citations**: Add citations for sources not in your Zotero library.
+- **Browse and search** your Zotero library from within VS Code.
+- **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
 
 ## 📦 Installation
 

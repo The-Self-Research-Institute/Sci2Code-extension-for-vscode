@@ -135,7 +135,9 @@ export class ZoteroAuthenticationProvider
       }
     }
 
-    return token ? [new ZoteroSession(token)] : [];
+    const result = token ? [new ZoteroSession(token)] : [];
+    console.log('[Sci2Code AuthProvider] Returning sessions, count:', result.length);
+    return result;
   }
 
   // This function is called after `this.getSessions` is called and only when:
