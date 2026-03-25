@@ -23,11 +23,11 @@
   <img src="resources/Features.gif" alt="Sci2Code Demo" width="100%" />
 </p>
 
-*   🔗 **Link Zotero items** directly into your code as references.
-*   ✍️ **Insert citations** into JavaScript, Python, Julia, and R documentation comments.
-*   📚 **Browse and search** your Zotero library from within VS Code.
-*   🔄 **Sync your code** with your research for better traceability.
-*   ✨ **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
+- **Link Zotero items** directly into your code as references.
+- **Insert citations** into JavaScript, Python, and R documentation comments.
+- **Manual citations**: Add citations for sources not in your Zotero library.
+- **Browse and search** your Zotero library from within VS Code.
+- **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
 
 ## 📦 Installation
 
@@ -37,31 +37,70 @@ You can install the extension from within Visual Studio Code or download it from
 
 1.  **Open a Supported File**: Works with Javascript (`.js`), Typescript (`.ts`), Python (`.py`), Julia (`.jl`), R (`.r`), and more.
 2.  **Configure API Key**:
-    *   Go to [Zotero API Settings](https://www.zotero.org/settings/keys) and create a new key (Read/Write access).
-    *   In VS Code, open **Settings** (`Ctrl+,`), search for `sci2code.apiKey`, and paste your key.
-    *   The status bar will update to `$(zap) Zotero: Ready`.
+    - Go to [Zotero API Settings](https://www.zotero.org/settings/keys) and create a new key (Read/Write access).
+    - In VS Code, open **Settings** (`Ctrl+,`), search for `sci2code.apiKey`, and paste your key.
+    - The status bar will update to `$(zap) Zotero: Ready`.
 
 ## 🛠 Usage
 
 ### **1. Using the Command Palette**
+
 1.  Open the Command Palette (`Ctrl+Shift+P`).
 2.  Run **"Sci2Code: Insert Zotero Citation"**.
-3.  Search and select your reference.
+3.  Search and select your reference, or choose **"Create Manual Citation"** to enter citation details manually.
 
-### **2. Using the Zotero Sidebar**
+### **2. Manual Citations**
+
+If you need to cite a source that's not in your Zotero library:
+
+1.  Open the Command Palette (`Ctrl+Shift+P`).
+2.  Run **"Sci2Code: Insert Manual Citation"**.
+3.  Enter the citation details (title, authors, year, DOI, URL, etc.).
+4.  The citation will be inserted using the same template format as Zotero citations.
+
+**Tip**: Manual citation is also available as the first option when using "Insert Zotero Citation".
+
+### **3. Using the Zotero Sidebar**
+
 1.  Click the **Zotero** icon in the Activity Bar.
 2.  Browse or search your library.
-3.  Click the "Insert Citation" icon next to any item.
+3.  Click any item to insert as citation.
 
-### **3. Using Comment Triggers**
+### **4. Using Comment Triggers**
+
 Type a trigger (e.g., `"""` in Python, `/**` in JS) above a function to see a searchable list of your Zotero items.
 
 ## ⚙️ Configuration
 
 Customize the extension to fit your workflow in **Settings** (`Ctrl+,` > Sci2Code).
 
-*   **Custom Triggers**: changing the default comment triggers.
-*   **Templates**: Define how citations appear using placeholders like `${zotero.title}`, `${zotero.key}`, `${zotero.url}`, and `${code.id}`.
+- **Custom Triggers**: changing the default comment triggers.
+- **Templates**: Define how citations appear using placeholders like:
+  - `${zotero.title}` - Article/book title
+  - `${zotero.creators}` - Authors
+  - `${zotero.date}` - Publication year
+  - `${zotero.DOI}` - Digital Object Identifier
+  - `${zotero.url}` - Web link to the item
+  - `${zotero.key}` - Zotero item key
+  - `${zotero.publicationTitle}` - Journal/conference name
+  - `${zotero.itemType}` - Type of reference
+  - `${code.id}` - Unique code identifier
+  - `${code.functionName}` - Associated function name
+
+### Example Template Customization
+
+```json
+"sci2code.templates": {
+  "python": [
+    "\"\"\"",
+    "Reference: ${zotero.title}",
+    "Authors: ${zotero.creators}",
+    "DOI: ${zotero.DOI}",
+    "URL: ${zotero.url}",
+    "\"\"\""
+  ]
+}
+```
 
 ## 🤝 Contributing
 

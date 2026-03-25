@@ -16,14 +16,22 @@ export function renderTemplate(languageId: string, zoteroItem: any, codeMetadata
     const templateLines = templates[languageId] || templates['default'] || ['Template not found for ${languageId}'];
 
     const template = templateLines.join('\n');
-    
+
     const zoteroAPIData = zoteroItem.data || {};
 
     const rendered = template.replace(/\${(zotero|code)\.(\w+)}/g, (match, domain, key) => {
         if (domain === 'zotero') {
             if (key === 'creators') return getZoteroCreators(zoteroItem);
             if (key === 'url') return zoteroItem.links?.alternate?.href || 'N/A';
-            return zoteroAPIData[key] || 'N/A';
+            if (key === 'key') return zoteroItem.key || 'N/A';
+
+            // Handle case-insensitive lookup for common fields
+            // Zotero API returns some fields with specific casing (e.g., DOI, ISBN)
+            const value = zoteroAPIData[key];
+            if (value !== undefined && value !== null && value !== '') {
+                return value;
+            }
+            return 'N/A';
         }
         if (domain === 'code') {
             if (key === 'id') return codeMetadata.codeId;

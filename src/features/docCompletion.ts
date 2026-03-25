@@ -1,5 +1,3 @@
-// src/features/unifiedDocCompletion.ts
-
 import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
@@ -9,6 +7,8 @@ import {
   generateCodeId,
   getZoteroItemTitle,
   saveMetadataToZotero,
+  formatCitationMetadata,
+  getCitationDetail,
 } from "../utils/zotero.utils";
 import { renderTemplate } from "./templateService";
 
@@ -163,7 +163,13 @@ abstract class BaseDocCompletionItem extends vscode.CompletionItem {
     const titleOfItem = getZoteroItemTitle(zoteroItem);
     super(`Zotero: ${titleOfItem}`, vscode.CompletionItemKind.Snippet);
 
-    this.detail = `Type: ${zoteroItem.data.itemType}`;
+    // Use improved formatting for detail
+    const citationInfo = formatCitationMetadata(zoteroItem);
+    const details = getCitationDetail(zoteroItem);
+    this.detail = citationInfo;
+    this.documentation = new vscode.MarkdownString(
+      `**${titleOfItem}**\n\n${citationInfo}\n\n${details ? details : ''}`
+    );
     this.sortText = "0";
 
     const match = triggerPatternManager.findMatchingPattern(document, position);
@@ -195,7 +201,7 @@ class LanguageCompletionItem extends BaseDocCompletionItem {
 }
 
 class UnifiedDocCompletionProvider implements vscode.CompletionItemProvider {
-  constructor(private languageId: string) {}
+  constructor(private languageId: string) { }
 
   public async provideCompletionItems(
     document: vscode.TextDocument,
@@ -233,7 +239,7 @@ class UnifiedDocCompletionProvider implements vscode.CompletionItemProvider {
     const codeId = generateCodeId(functionName, fileName);
     const metadata = { codeId, functionName };
 
-     return zoteroItems
+    return zoteroItems
       .filter((item: any) => item.data.itemType !== 'note')
       .map((item: any) => new LanguageCompletionItem(document, position, item, metadata));
   }

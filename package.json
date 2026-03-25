@@ -34,11 +34,16 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "browser": "./dist/web/extension.js",
   "contributes": {
     "configuration": {
       "title": "Sci2Code",
       "properties": {
+        "sci2code.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Zotero API key with read/write access. Get it from https://www.zotero.org/settings/keys",
+          "order": 0
+        },
         "sci2code.triggers": {
           "type": "array",
           "items": {
@@ -62,6 +67,7 @@
               " * @ZoteroitemType: ${zotero.itemType}",
               " * @ZoteroArticleNames: ${zotero.title}",
               " * @ZoteroArticleURLs: ${zotero.url}",
+              " * @ZoteroDOI: ${zotero.DOI}",
               " * @CodeID: ${code.id}",
               "\"\"\""
             ],
@@ -70,6 +76,7 @@
               " * @ZoteroArticleNames ${zotero.title}",
               " * @ZoteroArticleIDs ${zotero.key}",
               " * @ZoteroArticleURLs ${zotero.url}",
+              " * @ZoteroDOI ${zotero.DOI}",
               " * @CodeID ${code.id}",
               " */"
             ],
@@ -78,6 +85,7 @@
               " * @ZoteroArticleNames ${zotero.title}",
               " * @ZoteroArticleIDs ${zotero.key}",
               " * @ZoteroArticleURLs ${zotero.url}",
+              " * @ZoteroDOI ${zotero.DOI}",
               " * @CodeID ${code.id}",
               " */"
             ],
@@ -85,8 +93,11 @@
               "\"\"\"",
               "Zotero Reference:",
               "    Title: ${zotero.title}",
-              "    Key: ${zotero.key}",
+              "    Authors: ${zotero.creators}",
+              "    Year: ${zotero.date}",
+              "    DOI: ${zotero.DOI}",
               "    URL: ${zotero.url}",
+              "    Key: ${zotero.key}",
               "    CodeID: ${code.id}",
               "\"\"\""
             ],
@@ -96,14 +107,17 @@
               "#' @ZoteroitemType: ${zotero.itemType}",
               "#' @ZoteroArticleNames: ${zotero.title}",
               "#' @ZoteroArticleURLs: ${zotero.url}",
+              "#' @ZoteroDOI: ${zotero.DOI}",
               "#' @CodeID: ${code.id}",
               "#'"
             ],
             "julia": [
               "\"\"\"",
               "Reference: ${zotero.title}",
+              "Authors: ${zotero.creators}",
+              "DOI: ${zotero.DOI}",
+              "URL: ${zotero.url}",
               "Zotero Key: ${zotero.key}",
-              "Zotero URL: ${zotero.url}",
               "Code ID: ${code.id}",
               "\"\"\""
             ]
@@ -175,8 +189,16 @@
         "title": "Sci2Code: Open Settings"
       },
       {
+        "command": "sci2code.showLogs",
+        "title": "Sci2Code: Show Logs"
+      },
+      {
         "command": "sci2code.insertZoteroCitation",
         "title": "Sci2Code: Insert Zotero Citation"
+      },
+      {
+        "command": "sci2code.insertManualCitation",
+        "title": "Sci2Code: Insert Manual Citation"
       },
       {
         "command": "sci2code.logout",
@@ -283,7 +305,8 @@
     "lint:fix": "eslint src --ext ts --fix",
     "test": "vscode-test",
     "test-web": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=./",
-    "compile-web": "webpack --config webpack.config.js --mode development --watch"
+    "compile-web": "webpack --config webpack.config.js --mode development --watch",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.9",

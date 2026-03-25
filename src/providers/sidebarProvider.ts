@@ -1,7 +1,11 @@
 import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
-import { getZoteroItemTitle } from "../utils/zotero.utils";
+import {
+  getZoteroItemTitle,
+  formatCitationMetadata,
+  getCitationDetail
+} from "../utils/zotero.utils";
 
 type ZoteroItem = any;
 
@@ -55,11 +59,11 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
     if (element) {
       return Promise.resolve(element.children || []);
     }
-    
+
     // Otherwise, build the entire tree from the root
     return Promise.resolve(this.buildTree());
   }
-  
+
   /**
    * Builds the entire tree structure from Zotero items, applying any active filters.
    */
@@ -68,26 +72,26 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 
     // Context-sensitive help: No items loaded
     if (zoteroItems.length === 0 && !this.searchTerm) {
-        const infoItem = new SidebarItem("No Zotero items. Please log in or refresh.", vscode.TreeItemCollapsibleState.None);
-        infoItem.iconPath = new vscode.ThemeIcon("info");
-        return [infoItem];
+      const infoItem = new SidebarItem("No Zotero items. Please log in or refresh.", vscode.TreeItemCollapsibleState.None);
+      infoItem.iconPath = new vscode.ThemeIcon("info");
+      return [infoItem];
     }
 
     // Apply search filter
     let filteredItems = zoteroItems;
     if (this.searchTerm) {
-        const lowerCaseSearchTerm = this.searchTerm.toLowerCase();
-        filteredItems = zoteroItems.filter(item => {
-            const title = getZoteroItemTitle(item).toLowerCase();
-            return title.includes(lowerCaseSearchTerm);
-        });
+      const lowerCaseSearchTerm = this.searchTerm.toLowerCase();
+      filteredItems = zoteroItems.filter(item => {
+        const title = getZoteroItemTitle(item).toLowerCase();
+        return title.includes(lowerCaseSearchTerm);
+      });
     }
 
     // Context-sensitive help: Search returned nothing
     if (filteredItems.length === 0 && this.searchTerm) {
-        const infoItem = new SidebarItem(`No results for "${this.searchTerm}"`, vscode.TreeItemCollapsibleState.None);
-        infoItem.iconPath = new vscode.ThemeIcon("search-stop");
-        return [infoItem];
+      const infoItem = new SidebarItem(`No results for "${this.searchTerm}"`, vscode.TreeItemCollapsibleState.None);
+      infoItem.iconPath = new vscode.ThemeIcon("search-stop");
+      return [infoItem];
     }
 
     // Group the filtered items by itemType
@@ -99,43 +103,57 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       }
       groupedItems.get(itemType)!.push(item);
     }
-    
+
     // Convert the groups and their children into SidebarItems
     const tree: SidebarItem[] = [];
     for (const [itemType, items] of groupedItems.entries()) {
-        const children = items.map(item => new SidebarItem(
-            getZoteroItemTitle(item),
-            vscode.TreeItemCollapsibleState.None,
-            undefined, // Leaf nodes have no children
-            item       // Attach the full Zotero item
-        ));
-        
-        const groupLabel = `${itemType} (${items.length})`;
-        tree.push(new SidebarItem(
-            groupLabel,
-            vscode.TreeItemCollapsibleState.Expanded, // Groups start expanded
-            children
-        ));
+      const children = items.map(item => {
+        const sidebarItem = new SidebarItem(
+          getZoteroItemTitle(item),
+          vscode.TreeItemCollapsibleState.None,
+          undefined, // Leaf nodes have no children
+          item       // Attach the full Zotero item
+        );
+
+        // Add tooltip with detailed citation info
+        const metadata = formatCitationMetadata(item);
+        const details = getCitationDetail(item);
+        sidebarItem.tooltip = new vscode.MarkdownString(
+          `**${getZoteroItemTitle(item)}**\n\n${metadata}${details ? '\n\n' + details : ''}`
+        );
+
+        // Add description (shown to the right of the label)
+        sidebarItem.description = metadata;
+
+        return sidebarItem;
+      });
+
+      const groupLabel = `${itemType} (${items.length})`;
+      tree.push(new SidebarItem(
+        groupLabel,
+        vscode.TreeItemCollapsibleState.Expanded, // Groups start expanded
+        children
+      ));
     }
     return tree;
   }
-  
+
   public refresh(): void {
     this._onDidChangeTreeData.fire();
   }
-  
+
   /**
    * Public method to trigger the search UI.
    */
   public async search(): Promise<void> {
     const result = await vscode.window.showInputBox({
-        placeHolder: 'Search your Zotero library by title...',
-        value: this.searchTerm,
+      placeHolder: 'Search your Zotero library by title...',
+      value: this.searchTerm,
     });
 
     if (result !== undefined) {
-        this.searchTerm = result;
-        this.refresh();
+      this.searchTerm = result;
+      this.refresh();
     }
   }
 
