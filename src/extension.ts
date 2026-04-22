@@ -29,10 +29,12 @@ export function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Sci2Code extension activated');
 
   const sidebarProvider = new SidebarProvider();
-  vscode.window.registerTreeDataProvider("zotero-documents", sidebarProvider);
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("zotero-documents", sidebarProvider)
-  );
+  const zoteroTreeView = vscode.window.createTreeView("zotero-documents", {
+    treeDataProvider: sidebarProvider,
+    showCollapseAll: true,
+  });
+  sidebarProvider.treeView = zoteroTreeView;
+  context.subscriptions.push(zoteroTreeView);
 
   vscode.authentication.onDidChangeSessions((e) => {
     if (e.provider.id === ZoteroAuthenticationProvider.id) {
@@ -291,6 +293,43 @@ function registerStaticCommands(
     vscode.commands.registerCommand("sci2code.openSettings", () => {
       vscode.commands.executeCommand("workbench.action.openSettings", "sci2code");
     }),
+    vscode.commands.registerCommand("sci2code.showLogs", () => {
+      outputChannel.show(true);
+    }),
+    vscode.commands.registerCommand("sci2code.editTemplateForCurrentLanguage", async () => {
+      const supported = ["javascript", "typescript", "python", "r", "julia", "default"];
+      const editor = vscode.window.activeTextEditor;
+      const currentLang = editor?.document.languageId;
+      const pickItems = supported.map((id) => ({
+        label: id === currentLang ? `$(star-full) ${id}` : id,
+        description: id === currentLang ? "current editor language" : id === "default" ? "fallback for any other language" : "",
+        value: id,
+      }));
+      const picked = await vscode.window.showQuickPick(pickItems, {
+        placeHolder: "Select the language whose citation template you want to edit",
+      });
+      if (!picked) return;
+      // Open settings.json with the cursor near the chosen language.
+      await vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        `sci2code.templates`
+      );
+      vscode.window.showInformationMessage(
+        `Editing the "${picked.value}" template. Tip: placeholders are case-insensitive, e.g. \${zotero.doi} works.`
+      );
+    }),
+    vscode.commands.registerCommand("sci2code.resetTemplates", async () => {
+      const confirm = await vscode.window.showWarningMessage(
+        "Reset all Sci2Code citation templates to their defaults? Your customised templates will be lost.",
+        { modal: true },
+        "Reset"
+      );
+      if (confirm !== "Reset") return;
+      const config = vscode.workspace.getConfiguration("sci2code");
+      await config.update("templates", undefined, vscode.ConfigurationTarget.Global);
+      await config.update("templates", undefined, vscode.ConfigurationTarget.Workspace);
+      vscode.window.showInformationMessage("Sci2Code citation templates reset to defaults.");
+    }),
     vscode.commands.registerCommand("sci2code.logout", async () => {
       try {
         const session = await vscode.authentication.getSession(
@@ -335,6 +374,36 @@ function registerStaticCommands(
     vscode.commands.registerCommand("zotero.clearFilter", () =>
       sidebarProvider.clearFilter()
     ),
+    vscode.commands.registerCommand("zotero.sort", () =>
+      sidebarProvider.chooseSort()
+    ),
+    vscode.commands.registerCommand("zotero.copyDOI", async (node: any) => {
+      const doi = node?.zoteroItem?.data?.DOI;
+      if (!doi) {
+        vscode.window.showWarningMessage("This item has no DOI.");
+        return;
+      }
+      await vscode.env.clipboard.writeText(doi);
+      vscode.window.showInformationMessage(`Copied DOI: ${doi}`);
+    }),
+    vscode.commands.registerCommand("zotero.copyKey", async (node: any) => {
+      const key = node?.zoteroItem?.key;
+      if (!key) return;
+      await vscode.env.clipboard.writeText(key);
+      vscode.window.showInformationMessage(`Copied Zotero key: ${key}`);
+    }),
+    vscode.commands.registerCommand("zotero.openOnWeb", async (node: any) => {
+      const url =
+        node?.zoteroItem?.links?.alternate?.href ||
+        (node?.zoteroItem?.key && node?.zoteroItem?.library?.id
+          ? `https://www.zotero.org/users/${node.zoteroItem.library.id}/items/${node.zoteroItem.key}`
+          : undefined);
+      if (!url) {
+        vscode.window.showWarningMessage("No URL available for this item.");
+        return;
+      }
+      await vscode.env.openExternal(vscode.Uri.parse(url));
+    }),
     vscode.commands.registerCommand("zotero.refresh", async () => {
       // Re-authenticate to fetch fresh data from Zotero
       await activateSession(false);
@@ -402,8 +471,7 @@ function updateStatusBar() {
   } else {
     zoteroStatusItem.text = "$(warning) Zotero: Not Configured";
     zoteroStatusItem.tooltip = "Click to configure Zotero API Key.";
-    zoteroStatusItem.command =
-      "workbench.action.openSettings?%22sci2code.apiKey%22";
+    zoteroStatusItem.command = "sci2code.openSettings";
   }
 }
 

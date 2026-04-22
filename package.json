@@ -9,7 +9,17 @@
     "type": "git",
     "url": "https://github.com/The-Self-Research-Institute/zotero_vscode_ext"
   },
+  "bugs": {
+    "url": "https://github.com/The-Self-Research-Institute/zotero_vscode_ext/issues",
+    "email": "support@selfresearch.org"
+  },
+  "homepage": "https://github.com/The-Self-Research-Institute/zotero_vscode_ext#readme",
+  "qna": "https://github.com/The-Self-Research-Institute/zotero_vscode_ext/discussions",
   "icon": "resources/Sci2CodeLogo.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "description": "Sci2Code integrates Zotero with VS Code, letting you insert and manage references as JSDoc and PyDoc comments directly from your Zotero library, and more",
   "license": "GPL-3.0-or-later",
   "version": "1.0.3",
@@ -20,17 +30,22 @@
     "Programming Languages",
     "Snippets",
     "Data Science",
-    "Other"
+    "Education"
+  ],
+  "keywords": [
+    "zotero",
+    "citation",
+    "reference manager",
+    "research",
+    "academic",
+    "jsdoc",
+    "pydoc",
+    "bibliography",
+    "scientific",
+    "data science",
+    "reproducibility"
   ],
   "activationEvents": [
-    "onCommand:sci2code.openSettings",
-    "onCommand:sci2code.insertZoteroCitation",
-    "onCommand:sci2code.logout",
-    "onCommand:zotero.refresh",
-    "onCommand:zotero.search",
-    "onCommand:zotero.clearFilter",
-    "onView:zotero-documents",
-    "onView:zotero-account",
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
@@ -41,7 +56,9 @@
         "sci2code.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your Zotero API key with read/write access. Get it from https://www.zotero.org/settings/keys",
+          "markdownDescription": "Your Zotero API key with read/write access. Get it from [Zotero API Settings](https://www.zotero.org/settings/keys).\n\n**Security note:** this value is stored locally in your VS Code user settings. It is excluded from Settings Sync, but anyone with access to your machine can read it. The key is also copied into VS Code's secret storage for API calls.",
+          "scope": "application",
+          "ignoreSync": true,
           "order": 0
         },
         "sci2code.triggers": {
@@ -55,21 +72,21 @@
             "#'",
             "/**"
           ],
-          "description": "Global trigger characters/strings"
+          "markdownDescription": "Global comment-trigger strings. When you type any of these above a function, Sci2Code offers a citation completion.\n\nThese triggers apply to **every** language. To add extra triggers for a single language, use `#sci2code.languageSpecificTriggers#` — values there are **merged** with this list, not overridden."
         },
         "sci2code.templates": {
           "type": "object",
           "description": "Customize the documentation snippets that are inserted into your code.\n\n**How It Works**:\nThe key is a VS Code Language ID (e.g., `python`) and the value is an array of strings, where each string is a new line.\n\n**Available Placeholders**:\n\n**Common Placeholders**:\n- `${zotero.title}`: The main title of the item.\n- `${zotero.creators}`: A comma-separated list of authors.\n- `${zotero.date}`: The publication year.\n- `${zotero.DOI}`: The Digital Object Identifier.\n- `${zotero.publicationTitle}`: The title of the journal or book.\n- `${zotero.url}`: The URL link to the item.\n- `${zotero.itemType}`: The type of Zotero item (e.g., 'journalArticle').\n- `${zotero.key}`: The unique Zotero item key.\n\n**Code Context**:\n- `${code.id}`: The unique ID linking the code to the Zotero item.\n- `${code.functionName}`: The name of the function being documented.",
           "default": {
             "default": [
-              "\"\"\"",
-              " * @ZoteroArticleIDs: ${zotero.key}",
-              " * @ZoteroitemType: ${zotero.itemType}",
-              " * @ZoteroArticleNames: ${zotero.title}",
-              " * @ZoteroArticleURLs: ${zotero.url}",
-              " * @ZoteroDOI: ${zotero.DOI}",
-              " * @CodeID: ${code.id}",
-              "\"\"\""
+              "// Zotero Reference",
+              "// Title: ${zotero.title}",
+              "// Authors: ${zotero.creators}",
+              "// Year: ${zotero.date}",
+              "// DOI: ${zotero.DOI}",
+              "// URL: ${zotero.url}",
+              "// Zotero Key: ${zotero.key}",
+              "// Code ID: ${code.id}"
             ],
             "javascript": [
               "/**",
@@ -125,7 +142,7 @@
         },
         "sci2code.languageSpecificTriggers": {
           "type": "object",
-          "description": "Language-specific trigger configurations",
+          "markdownDescription": "Extra comment triggers scoped to a specific language. Values are **added to** `#sci2code.triggers#` for that language (they do not replace it). The key is a VS Code language id such as `python`, `javascript`, `typescript`, `r`, `julia`.",
           "default": {
             "javascript": [
               "/**",
@@ -155,19 +172,25 @@
                 "type": "string"
               }
             },
-            "python": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
             "typescript": {
               "type": "array",
               "items": {
                 "type": "string"
               }
             },
-            "java": {
+            "python": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "r": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "julia": {
               "type": "array",
               "items": {
                 "type": "string"
@@ -189,8 +212,20 @@
         "title": "Sci2Code: Open Settings"
       },
       {
+        "command": "sci2code.editTemplateForCurrentLanguage",
+        "title": "Sci2Code: Edit Citation Template for Current Language"
+      },
+      {
+        "command": "sci2code.resetTemplates",
+        "title": "Sci2Code: Reset Citation Templates to Default"
+      },
+      {
         "command": "sci2code.showLogs",
         "title": "Sci2Code: Show Logs"
+      },
+      {
+        "command": "sci2code.login",
+        "title": "Sci2Code: Login to Zotero"
       },
       {
         "command": "sci2code.insertZoteroCitation",
@@ -199,6 +234,10 @@
       {
         "command": "sci2code.insertManualCitation",
         "title": "Sci2Code: Insert Manual Citation"
+      },
+      {
+        "command": "sci2code.insertCitationFromSidebar",
+        "title": "Sci2Code: Insert Citation From Sidebar"
       },
       {
         "command": "sci2code.logout",
@@ -218,9 +257,44 @@
         "command": "zotero.clearFilter",
         "title": "Clear Search",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "zotero.sort",
+        "title": "Sort Zotero Documents",
+        "icon": "$(sort-precedence)"
+      },
+      {
+        "command": "zotero.copyDOI",
+        "title": "Copy DOI"
+      },
+      {
+        "command": "zotero.copyKey",
+        "title": "Copy Zotero Key"
+      },
+      {
+        "command": "zotero.openOnWeb",
+        "title": "Open on zotero.org"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "sci2code.insertCitationFromSidebar",
+          "when": "false"
+        },
+        {
+          "command": "zotero.copyDOI",
+          "when": "false"
+        },
+        {
+          "command": "zotero.copyKey",
+          "when": "false"
+        },
+        {
+          "command": "zotero.openOnWeb",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "zotero.search",
@@ -229,13 +303,35 @@
         },
         {
           "command": "zotero.clearFilter",
-          "when": "view == zotero-documents",
+          "when": "view == zotero-documents && zotero:hasFilter",
           "group": "navigation@2"
+        },
+        {
+          "command": "zotero.sort",
+          "when": "view == zotero-documents",
+          "group": "navigation@3"
         },
         {
           "command": "zotero.refresh",
           "when": "view == zotero-documents",
-          "group": "navigation@3"
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "zotero.copyDOI",
+          "when": "view == zotero-documents && viewItem == zoteroItem",
+          "group": "1_copy@1"
+        },
+        {
+          "command": "zotero.copyKey",
+          "when": "view == zotero-documents && viewItem == zoteroItem",
+          "group": "1_copy@2"
+        },
+        {
+          "command": "zotero.openOnWeb",
+          "when": "view == zotero-documents && viewItem == zoteroItem",
+          "group": "2_open@1"
         }
       ]
     },

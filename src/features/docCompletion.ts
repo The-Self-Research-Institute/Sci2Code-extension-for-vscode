@@ -139,8 +139,8 @@ class TriggerPatternManager {
     const allTriggers = new Set([...globalTriggers, ...langTriggers]);
     const triggerChars = new Set<string>();
     allTriggers.forEach((trigger) => {
-      if (trigger && trigger.length > 0) {
-        triggerChars.add(trigger.charAt(trigger.length - 1));
+      for (const ch of trigger) {
+        if (ch) triggerChars.add(ch);
       }
     });
     return Array.from(triggerChars);
