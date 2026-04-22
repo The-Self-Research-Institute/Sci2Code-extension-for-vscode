@@ -4,6 +4,11 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-04-22
+
+### Fixed
+- Swapped all README badges from the deprecated shields.io `vscode-marketplace` endpoint (which renders as "retired badge") to `vsmarketplacebadges.dev`, which works against the current Marketplace API.
+
 ## [1.0.7] - 2026-04-22
 
 ### Fixed
