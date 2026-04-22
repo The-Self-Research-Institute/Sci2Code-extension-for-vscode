@@ -4,6 +4,26 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-04-22
+
+### Added
+- Friendlier Zotero sidebar — icons for each item type, clearer labels, and search that looks across title, authors, DOI, year and more.
+- Right-click any paper in the sidebar to copy its DOI or Zotero key, or open it on zotero.org.
+- Sort your library by type, title, author or date.
+- New examples folder with ready-to-try files for Python, JavaScript, TypeScript, R and Julia.
+- A quick “Show Logs” option and one-click “Reset to default template” for when things go wrong.
+
+### Changed
+- Citations now pop up as soon as you start typing a trigger like `/**` or `"""`, not only after the last character.
+- The default citation style is now neutral so it looks right in any language before you customize it.
+- Your Zotero API key is kept private to this machine — it will not sync across devices by accident.
+- Refreshed README with new screenshots and a short demo.
+
+### Fixed
+- “Show Logs” now actually opens the log.
+- Clicking the status-bar indicator takes you to the right settings page.
+- A few small hiccups that could make citations fail silently.
+
 ## [1.0.4] - 2026-04-22
 
 ### Added
