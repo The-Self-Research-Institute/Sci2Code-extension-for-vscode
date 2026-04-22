@@ -10,7 +10,10 @@
 
 <p align="center">
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License"></a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://img.shields.io/visual-studio-marketplace/v/SelfResearchInstitute.sci2code?color=blue&label=VS%20Code%20Marketplace" alt="Visual Studio Marketplace Version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://img.shields.io/vscode-marketplace/v/SelfResearchInstitute.sci2code.svg?label=VS%20Code%20Marketplace&color=blue" alt="Marketplace Version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://img.shields.io/vscode-marketplace/d/SelfResearchInstitute.sci2code.svg?label=downloads&color=green" alt="Downloads"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://img.shields.io/vscode-marketplace/i/SelfResearchInstitute.sci2code.svg?label=installs&color=brightgreen" alt="Installs"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code&ssr=false#review-details"><img src="https://img.shields.io/vscode-marketplace/r/SelfResearchInstitute.sci2code.svg?label=rating&color=gold" alt="Rating"></a>
 </p>
 
 ---

@@ -4,6 +4,14 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-04-22
+
+### Fixed
+- Replaced the deprecated Marketplace version badge (was showing "retired badge") with the current `vscode-marketplace` endpoint.
+
+### Added
+- Downloads, installs and rating badges at the top of the README.
+
 ## [1.0.6] - 2026-04-22
 
 ### Fixed
