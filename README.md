@@ -1,7 +1,7 @@
 # Sci2Code
 
 <p align="center">
-  <img src="resources/Sci2CodeLogo.png" alt="Sci2Code Logo" width="128"/>
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/Sci2CodeLogo.png" alt="Sci2Code Logo" width="128"/>
 </p>
 
 <p align="center">

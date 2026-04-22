@@ -4,6 +4,11 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-04-22
+
+### Fixed
+- Logo now renders correctly on the Marketplace listing and in external README viewers (served from an absolute URL).
+
 ## [1.0.5] - 2026-04-22
 
 ### Added
