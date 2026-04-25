@@ -4,6 +4,12 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-04-25
+
+### Changed
+- Enlarged README screenshots to full width for better legibility on the Marketplace listing.
+- Added a "Watch the full HD demo (MP4)" link under the animated GIF for higher-fidelity preview.
+
 ## [1.0.8] - 2026-04-22
 
 ### Fixed

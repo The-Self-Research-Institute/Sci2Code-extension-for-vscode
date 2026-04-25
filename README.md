@@ -23,7 +23,13 @@
 ## 🚀 Features
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/Sci2Code.gif" alt="Sci2Code Demo" width="100%" />
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/Sci2Code.gif" alt="Sci2Code animated demo" width="100%" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/The-Self-Research-Institute/links/raw/main/Sci2code-demo.mp4">
+    ▶ <b>Watch the full HD demo (MP4)</b>
+  </a>
 </p>
 
 - **Link Zotero items** directly into your code as references.
@@ -36,19 +42,71 @@
 
 A step-by-step walkthrough of what Sci2Code looks like in action.
 
-| # | Step | Preview |
-|---|------|---------|
-| 1 | Install from the VS Code Marketplace | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/01-marketplace-install.png" alt="Marketplace install" width="420"/> |
-| 2 | Works across Python, JS/TS, R, Julia and more | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/02-readme-languages.png" alt="Supported languages" width="420"/> |
-| 3 | Your Zotero library in the sidebar | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/03-library-sidebar.png" alt="Library sidebar" width="420"/> |
-| 4 | Type a comment trigger → QuickPick opens | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/04-quickpick-trigger.png" alt="QuickPick on trigger" width="420"/> |
-| 5 | Pick a reference — citation is inserted | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/05-citation-inserted.png" alt="Citation inserted" width="420"/> |
-| 6 | Or insert via the Command Palette | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/06-command-palette-search.png" alt="Command Palette search" width="420"/> |
-| 7 | Or single-click from the sidebar | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/07-sidebar-click-insert.png" alt="Sidebar click insert" width="420"/> |
-| 8 | Multi-language templates out of the box | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/08-multi-language.png" alt="Multi-language templates" width="420"/> |
-| 9 | Configure everything from the Settings UI | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/09-settings-ui.png" alt="Settings UI" width="420"/> |
-| 10 | Define your own citation template | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/10-custom-template.png" alt="Custom template" width="420"/> |
-| 11 | See your custom template in the inserted block | <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/11-custom-result.png" alt="Custom template result" width="420"/> |
+**1. Install from the VS Code Marketplace**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/01-marketplace-install.png" alt="Marketplace install" width="100%"/>
+</p>
+
+**2. Works across Python, JS/TS, R, Julia and more**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/02-readme-languages.png" alt="Supported languages" width="100%"/>
+</p>
+
+**3. Your Zotero library, right in the sidebar**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/03-library-sidebar.png" alt="Library sidebar" width="100%"/>
+</p>
+
+**4. Type a comment trigger → QuickPick opens**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/04-quickpick-trigger.png" alt="QuickPick on trigger" width="100%"/>
+</p>
+
+**5. Pick a reference — citation is inserted**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/05-citation-inserted.png" alt="Citation inserted" width="100%"/>
+</p>
+
+**6. Or insert via the Command Palette**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/06-command-palette-search.png" alt="Command Palette search" width="100%"/>
+</p>
+
+**7. Or single-click from the sidebar**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/07-sidebar-click-insert.png" alt="Sidebar click insert" width="100%"/>
+</p>
+
+**8. Multi-language templates out of the box**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/08-multi-language.png" alt="Multi-language templates" width="100%"/>
+</p>
+
+**9. Configure everything from the Settings UI**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/09-settings-ui.png" alt="Settings UI" width="100%"/>
+</p>
+
+**10. Define your own citation template**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/10-custom-template.png" alt="Custom template" width="100%"/>
+</p>
+
+**11. See your custom template in the inserted block**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/The-Self-Research-Institute/links/main/screenshots/11-custom-result.png" alt="Custom template result" width="100%"/>
+</p>
 
 ## 📦 Installation
 

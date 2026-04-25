@@ -8,3 +8,4 @@ node_modules
 # Local-only demo assets (not shipped with the extension)
 examples/
 docs/
+*.log
