@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/The-Self-Research-Institute/links/raw/main/Sci2Code-Demo.mp4">
+  <a href="https://github.com/The-Self-Research-Institute/links/raw/main/Sci2code-demo.mp4">
     ▶ <b>Watch the full HD demo (MP4)</b>
   </a>
 </p>
