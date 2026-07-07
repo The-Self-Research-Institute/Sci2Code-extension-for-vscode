@@ -4,6 +4,9 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **License**: Changed from GPL-3.0-or-later to AGPL-3.0-or-later.
+
 ## [1.0.9] - 2026-04-25
 
 ### Changed
