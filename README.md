@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/version-short/SelfResearchInstitute.sci2code.svg?label=VS%20Code%20Marketplace&color=blue" alt="Marketplace Version"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/installs-short/SelfResearchInstitute.sci2code.svg?label=installs&color=brightgreen" alt="Installs"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/downloads-short/SelfResearchInstitute.sci2code.svg?label=downloads&color=green" alt="Downloads"></a>
@@ -189,7 +189,7 @@ This project follows a [Code of Conduct](CODE_OF_CONDUCT.md) and [Governance Mod
 
 ## 📄 License
 
-This project is licensed under the [GPL-3.0 License](LICENSE.md).
+This project is licensed under the [GNU AGPL-3.0 License](LICENSE.md).
 
 ## 📬 Contact
 

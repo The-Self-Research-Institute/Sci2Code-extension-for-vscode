@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 title: "Sci2Code"
 version: 1.0.2
 date-released: 2025-05-29
-license: GPL-3.0-or-later
+license: AGPL-3.0-or-later
 
 authors:
   - name: "The Self Research Institute"
