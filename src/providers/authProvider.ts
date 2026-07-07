@@ -12,6 +12,7 @@ import {
 } from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
+import { getUserDetails } from "../zotero/api";
 
 class ZoteroSession implements AuthenticationSession {
   // We don't know the user's account name, so we'll just use a constant
@@ -118,24 +119,25 @@ export class ZoteroAuthenticationProvider
     this.ensureInitialized();
     let token = await this.cacheTokenFromStorage();
 
-    // Always check the configuration setting to see if it's been updated
-    const { workspace } = await import('vscode');
-    const config = workspace.getConfiguration('sci2code');
-    const apiKeyFromSettings = config.get<string>('apiKey');
+    // Only adopt the settings-configured key when there's no stored token yet
+    // (first run / settings.json-only setup). Once a token is stored -- whether
+    // from a validated login prompt or a prior settings sync -- it is the
+    // source of truth; a stale value left in settings must not silently
+    // clobber it on every session check. Explicit settings edits are handled
+    // separately via the `onDidChangeConfiguration` listener in extension.ts.
+    if (!token) {
+      const { workspace } = await import('vscode');
+      const config = workspace.getConfiguration('sci2code');
+      const apiKeyFromSettings = config.get<string>('apiKey');
 
-    // If there's an API key in settings
-    if (apiKeyFromSettings && apiKeyFromSettings.trim()) {
-      // If it's different from the stored token, update the storage
-      if (apiKeyFromSettings !== token) {
+      if (apiKeyFromSettings && apiKeyFromSettings.trim()) {
+        token = apiKeyFromSettings.trim();
         await this.secretStorage.store(
           ZoteroAuthenticationProvider.secretKey,
-          apiKeyFromSettings
+          token
         );
-        token = apiKeyFromSettings;
         this.currentToken = Promise.resolve(token);
       }
-    } else if (!token) {
-      // No key in settings and no stored token
     }
 
     const result = token ? [new ZoteroSession(token)] : [];
@@ -149,27 +151,80 @@ export class ZoteroAuthenticationProvider
   async createSession(_scopes: string[]): Promise<AuthenticationSession> {
     this.ensureInitialized();
 
-    // Prompt for the PAT.
-    const token = await window.showInputBox({
-      ignoreFocusOut: true,
-      prompt: "Enter Zotero API Key ",
-      placeHolder: "Zotero API Key",
-      password: true,
-    });
+    let lastAttempt: string | undefined;
 
-    // Note: this example doesn't do any validation of the token beyond making sure it's not empty.
-    if (!token) {
-      throw new Error("Zotero Access Token is required");
+    while (true) {
+      const input = await window.showInputBox({
+        ignoreFocusOut: true,
+        prompt: "Enter Zotero API Key",
+        placeHolder: "Zotero API Key",
+        password: true,
+        value: lastAttempt,
+      });
+
+      if (!input) {
+        throw new Error("Zotero Access Token is required");
+      }
+
+      const token = input.trim();
+      lastAttempt = token;
+
+      const validation = await this.validateApiKey(token);
+      if (validation.valid) {
+        await this.secretStorage.store(
+          ZoteroAuthenticationProvider.secretKey,
+          token
+        );
+
+        contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
+
+        return new ZoteroSession(token);
+      }
+
+      const retry = await window.showErrorMessage(
+        `Zotero | ${validation.message}`,
+        { modal: true },
+        "Try Again"
+      );
+      if (retry !== "Try Again") {
+        throw new Error("Zotero sign-in cancelled.");
+      }
     }
+  }
 
-    await this.secretStorage.store(
-      ZoteroAuthenticationProvider.secretKey,
-      token
-    );
-
-    contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
-
-    return new ZoteroSession(token);
+  private async validateApiKey(
+    token: string
+  ): Promise<{ valid: boolean; message: string }> {
+    try {
+      const response = await getUserDetails(token);
+      if (response.ok) {
+        return { valid: true, message: "" };
+      }
+      if (response.status === 403) {
+        return {
+          valid: false,
+          message:
+            "That key was rejected by Zotero. Check it has library read access at zotero.org/settings/keys, then try again.",
+        };
+      }
+      if (response.status === 404) {
+        return {
+          valid: false,
+          message:
+            "That doesn't look like a valid Zotero API key. Double-check you copied the whole key with no extra spaces, then try again.",
+        };
+      }
+      return {
+        valid: false,
+        message: `Zotero API returned an unexpected error (${response.status} ${response.statusText}). Please try again.`,
+      };
+    } catch {
+      return {
+        valid: false,
+        message:
+          "Couldn't reach the Zotero API. Check your internet connection, then try again.",
+      };
+    }
   }
 
   // This function is called when the end user signs out of the account.

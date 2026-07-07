@@ -33,10 +33,11 @@
 </p>
 
 - **Link Zotero items** directly into your code as references.
-- **Insert citations** into JavaScript, Python, and R documentation comments.
+- **Insert citations** into JavaScript, TypeScript, Python, R, and Julia documentation comments — including inside **Jupyter Notebook** (`.ipynb`) cells.
 - **Manual citations**: Add citations for sources not in your Zotero library.
 - **Browse and search** your Zotero library from within VS Code.
 - **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
+- **Generate a Bibliography**: Collect every citation you've inserted across a file or the whole workspace into a formatted reference list — APA, MLA, Numbered, or BibTeX.
 
 ## 🖼 Screenshots
 
@@ -114,7 +115,7 @@ You can install the extension from within Visual Studio Code or download it from
 
 ## ⚡ Get Started
 
-1.  **Open a Supported File**: Works with Javascript (`.js`), Typescript (`.ts`), Python (`.py`), Julia (`.jl`), R (`.r`), and more.
+1.  **Open a Supported File**: Works with Javascript (`.js`), Typescript (`.ts`), Python (`.py`), Julia (`.jl`), R (`.r`), and more — including Jupyter Notebook (`.ipynb`) cells.
 2.  **Configure API Key**:
     - Go to [Zotero API Settings](https://www.zotero.org/settings/keys) and create a new key (Read/Write access).
     - In VS Code, open **Settings** (`Ctrl+,`), search for `sci2code.apiKey`, and paste your key.
@@ -148,6 +149,17 @@ If you need to cite a source that's not in your Zotero library:
 ### **4. Using Comment Triggers**
 
 Type a trigger (e.g., `"""` in Python, `/**` in JS) above a function to see a searchable list of your Zotero items.
+
+### **5. Generating a Bibliography**
+
+Once you've cited a few sources in your code, turn them into a reference list:
+
+1.  Open the Command Palette (`Ctrl+Shift+P`).
+2.  Run **"Sci2Code: Generate Bibliography"**.
+3.  Choose a scope (current file or the whole workspace), then a citation style — **APA**, **MLA**, **Numbered**, or **BibTeX**.
+4.  Choose where it goes — inserted at your cursor, or written out to `REFERENCES.md` / `references.bib`.
+
+Sci2Code only includes items it can match back to your Zotero library, so the list always stays in sync with what's actually cited.
 
 ## ⚙️ Configuration
 

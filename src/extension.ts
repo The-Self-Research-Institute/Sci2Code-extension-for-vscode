@@ -11,6 +11,7 @@ import {
   registerCompletion,
   triggerPatternManager,
 } from "./features/docCompletion";
+import { generateBibliographyCommand } from "./features/bibliographyService";
 import { contextService } from "./services/contextService";
 import { ZOTERO_CONTEXT } from "./system/constants";
 import { Sci2CodeAPI, CitationItem } from "./api/types";
@@ -42,8 +43,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  const activateSession = async (createIfNone: boolean) => {
-    await generateSession(createIfNone);
+  const activateSession = async (
+    createIfNone: boolean,
+    forceNewSession: boolean = false
+  ) => {
+    await generateSession(createIfNone, forceNewSession);
     sidebarProvider.refresh();
   };
 
@@ -282,7 +286,10 @@ function formatDate(date: string): string {
 function registerStaticCommands(
   context: vscode.ExtensionContext,
   sidebarProvider: SidebarProvider,
-  activateSession: (createIfNone: boolean) => Promise<void>
+  activateSession: (
+    createIfNone: boolean,
+    forceNewSession?: boolean
+  ) => Promise<void>
 ) {
   context.subscriptions.push(
     vscode.authentication.registerAuthenticationProvider(
@@ -355,7 +362,7 @@ function registerStaticCommands(
       }
     }),
     vscode.commands.registerCommand("sci2code.login", () =>
-      activateSession(true)
+      activateSession(true, true)
     ),
     vscode.commands.registerCommand("sci2code.insertZoteroCitation", () =>
       insertCitationCommand(zoteroStatusItem)
@@ -367,6 +374,10 @@ function registerStaticCommands(
     vscode.commands.registerCommand(
       "sci2code.insertManualCitation",
       insertManualCitationCommand
+    ),
+    vscode.commands.registerCommand(
+      "sci2code.generateBibliography",
+      generateBibliographyCommand
     ),
     vscode.commands.registerCommand("zotero.search", () =>
       sidebarProvider.search()
@@ -425,11 +436,33 @@ function registerCompletionProviders(context: vscode.ExtensionContext) {
         { language: "javascriptreact", scheme: "file" },
         { language: "typescript", scheme: "file" },
         { language: "javascript", scheme: "file" },
+        { language: "typescriptreact", scheme: "vscode-notebook-cell" },
+        { language: "javascriptreact", scheme: "vscode-notebook-cell" },
+        { language: "typescript", scheme: "vscode-notebook-cell" },
+        { language: "javascript", scheme: "vscode-notebook-cell" },
       ],
     },
-    { id: "python", selector: { language: "python", scheme: "file" } },
-    { id: "r", selector: { language: "r", scheme: "file" } },
-    { id: "julia", selector: { language: "julia", scheme: "file" } },
+    {
+      id: "python",
+      selector: [
+        { language: "python", scheme: "file" },
+        { language: "python", scheme: "vscode-notebook-cell" },
+      ],
+    },
+    {
+      id: "r",
+      selector: [
+        { language: "r", scheme: "file" },
+        { language: "r", scheme: "vscode-notebook-cell" },
+      ],
+    },
+    {
+      id: "julia",
+      selector: [
+        { language: "julia", scheme: "file" },
+        { language: "julia", scheme: "vscode-notebook-cell" },
+      ],
+    },
   ];
 
   providersToRegister.forEach((p) => {
