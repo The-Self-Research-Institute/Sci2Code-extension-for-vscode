@@ -5,13 +5,16 @@ import { ZOTERO_CONTEXT } from "../system/constants";
 import { contextService } from "../services/contextService";
 import { SidebarProvider } from "../providers/sidebarProvider";
 
-export const generateSession = async (createIfNone: boolean) => {
+export const generateSession = async (
+  createIfNone: boolean,
+  forceNewSession: boolean = false
+) => {
   const sidebarProvider = new SidebarProvider();
 
   const session = await authentication.getSession(
     ZoteroAuthenticationProvider.id,
     [],
-    { createIfNone }
+    forceNewSession ? { forceNewSession: true } : { createIfNone }
   );
 
   try {

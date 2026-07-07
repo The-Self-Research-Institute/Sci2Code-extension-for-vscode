@@ -22,7 +22,7 @@
   },
   "description": "Sci2Code integrates Zotero with VS Code, letting you insert and manage references as JSDoc and PyDoc comments directly from your Zotero library, and more",
   "license": "AGPL-3.0-or-later",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -238,6 +238,10 @@
       {
         "command": "sci2code.insertCitationFromSidebar",
         "title": "Sci2Code: Insert Citation From Sidebar"
+      },
+      {
+        "command": "sci2code.generateBibliography",
+        "title": "Sci2Code: Generate Bibliography"
       },
       {
         "command": "sci2code.logout",

@@ -4,8 +4,19 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-07-07
+
+### Added
+- **Jupyter Notebook support**: Citation completions and inserts now work inside `.ipynb` cells (Python, R, Julia, JS/TS), not just plain files. Previously the completion provider only matched `scheme: "file"`, so notebook cells (`scheme: "vscode-notebook-cell"`) were silently unsupported.
+- **Generate Bibliography**: New "Sci2Code: Generate Bibliography" command. Scans the current file or the whole workspace for citations already inserted by Sci2Code, matches them against your Zotero library, and produces a formatted reference list in APA, MLA, Numbered, or BibTeX style — written to `REFERENCES.md`/`references.bib` or inserted at the cursor.
+
 ### Changed
 - **License**: Changed from GPL-3.0-or-later to AGPL-3.0-or-later.
+
+### Fixed
+- **Login validates the API key before saving it.** Previously "Sci2Code: Login to Zotero" accepted any non-empty text and only surfaced a confusing error later, after the sidebar tried to load. Now the key is checked against the Zotero API right away — an invalid key re-prompts immediately with a clear reason (bad key, no library access, or a network problem) and your previous entry pre-filled so you can fix a typo instead of retyping the whole key.
+- **"Sci2Code: Login to Zotero" now always re-prompts and re-validates**, even if a previous (possibly invalid) key is already cached — clicking Login no longer silently reuses a stale session and fails downstream.
+- **A stale `sci2code.apiKey` setting no longer permanently overrides a working login.** Previously, any non-empty value left in that setting was re-synced over the stored token on every single session check, so a bad leftover setting value could clobber a freshly validated login indefinitely. It's now only adopted when no token is stored yet (first-run/settings.json setup); explicit edits to the setting are still picked up via the existing configuration-change handler.
 
 ## [1.0.9] - 2026-04-25
 
