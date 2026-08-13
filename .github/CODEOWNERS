@@ -1,0 +1,3 @@
+scripts/foo.js @The-Self-Research-Institute/sci2code-maintainers
+scripts/* @The-Self-Research-Institute/sci2code-maintainers
+*.js @The-Self-Research-Institute/sci2code-maintainers
