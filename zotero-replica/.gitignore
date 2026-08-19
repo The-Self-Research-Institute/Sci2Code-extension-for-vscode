@@ -1,0 +1,10 @@
+# dataserver (Maven)
+dataserver/target/
+
+# ontology-library-ui (Vite/npm)
+ontology-library-ui/node_modules/
+ontology-library-ui/dist/
+
+# Local env overrides (never commit real secrets)
+.env
+ontology-library-ui/.env.local

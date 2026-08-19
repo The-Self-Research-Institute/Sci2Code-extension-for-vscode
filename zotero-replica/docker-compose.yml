@@ -1,0 +1,45 @@
+# Standalone local-development stack for the Zotero Replica.
+#
+# Explicitly NOT connected to any OntoCode MongoDB/service - "zotero-replica-mongo"
+# is a dedicated container with its own named volume, used by nothing else.
+#
+# Usage:
+#   cd zotero-replica
+#   cp .env.example .env   # then edit JWT_SECRET
+#   docker compose up --build
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: zotero-replica-mongo
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    volumes:
+      - zotero-replica-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dataserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.dataserver
+    container_name: zotero-replica-dataserver
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/zotero_replica
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in zotero-replica/.env - generate one with: openssl rand -base64 48}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3010}
+      SERVER_PORT: "9089"
+    ports:
+      - "9089:9089"
+
+volumes:
+  zotero-replica-mongo-data:
+    name: zotero-replica-mongo-data

@@ -1,0 +1,54 @@
+# Multi-stage build for the standalone Zotero Replica Dataserver microservice.
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
+
+WORKDIR /build
+
+# Copy only the dataserver module itself - it is a fully standalone Maven
+# project (its own parent is spring-boot-starter-parent, not an OntoCode
+# multi-module root), so no sibling module directories are needed here.
+COPY dataserver/pom.xml ./pom.xml
+COPY dataserver/src ./src
+
+RUN --mount=type=cache,target=/root/.m2 \
+    sh -c 'for attempt in 1 2 3; do \
+        mvn -Dhttp.keepAlive=false \
+            -Dmaven.wagon.http.retryHandler.count=10 \
+            -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
+            clean package -Dmaven.test.skip=true -B -ntp && exit 0; \
+        echo "Dataserver build failed, retrying ($$attempt/3)..."; \
+    done; \
+    exit 1'
+
+# Debug: list what was built
+RUN echo "=== Contents of target ===" && ls -lah /build/target/ || echo "ERROR: target directory not found"
+
+# Runtime stage
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+# Add non-root user for security
+RUN if ! getent group 1000 >/dev/null; then groupadd -g 1000 appuser; else echo "Group 1000 already exists"; fi && \
+    if ! getent passwd 1000 >/dev/null; then useradd -u 1000 -g 1000 -m -s /bin/bash appuser; else echo "User 1000 already exists"; fi
+
+# Install wget for health checks
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
+# Create logs directory
+RUN mkdir -p /app/logs && \
+    chown -R 1000:1000 /app
+
+# Copy the built JAR (spring-boot:repackage creates the executable JAR directly).
+COPY --from=build /build/target/dataserver-*.jar app.jar
+
+USER 1000
+
+# Expose dataserver port
+EXPOSE 9089
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9089/actuator/health || exit 1
+
+# Run the application (JAVA_TOOL_OPTIONS env var is automatically picked up by JVM)
+ENTRYPOINT ["java", "-jar", "app.jar"]

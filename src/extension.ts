@@ -16,6 +16,7 @@ import { contextService } from "./services/contextService";
 import { ZOTERO_CONTEXT } from "./system/constants";
 import { Sci2CodeAPI, CitationItem } from "./api/types";
 import { getZoteroItemTitle } from "./utils/zotero.utils";
+import { ZoteroReplicaPanel } from "./zoteroReplica/webviewPanel";
 
 let zoteroStatusItem: vscode.StatusBarItem;
 let completionProviders: vscode.Disposable[] = [];
@@ -103,6 +104,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   registerStaticCommands(context, sidebarProvider, activateSession);
   registerCompletionProviders(context);
+
+  // Zotero Replica: isolated WebviewPanel host, see src/zoteroReplica/webviewPanel.ts.
+  // Does not touch any existing Zotero/Sci2Code state or commands.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("zoteroReplica.openLibrary", () => {
+      ZoteroReplicaPanel.createOrShow(context.extensionUri);
+    })
+  );
 
   // Export Public API for other extensions (e.g., OntoCode)
   const api: Sci2CodeAPI = {

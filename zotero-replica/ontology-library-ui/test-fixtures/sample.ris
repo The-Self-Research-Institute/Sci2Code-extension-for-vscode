@@ -1,0 +1,28 @@
+TY  - JOUR
+AU  - Grau, Bernardo Cuenca
+AU  - Horrocks, Ian
+TI  - OWL 2: The Next Step for OWL
+T2  - Journal of Web Semantics
+PY  - 2008
+VL  - 6
+IS  - 4
+SP  - 309
+EP  - 322
+DO  - 10.1016/j.websem.2008.05.001
+SN  - 1570-8268
+UR  - https://doi.org/10.1016/j.websem.2008.05.001
+AB  - Describes OWL 2, the next iteration of the Web Ontology Language.
+KW  - OWL
+KW  - ontology
+KW  - Semantic Web
+ER  -
+
+TY  - CONF
+AU  - Sirin, Evren
+AU  - Parsia, Bijan
+TI  - Pellet: A Practical OWL-DL Reasoner
+PY  - 2007
+UR  - https://www.w3.org/2001/sw/wiki/Pellet
+KW  - reasoning
+KW  - OWL
+ER  -

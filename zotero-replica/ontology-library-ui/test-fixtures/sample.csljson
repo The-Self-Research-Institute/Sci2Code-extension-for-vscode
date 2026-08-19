@@ -1,0 +1,26 @@
+[
+  {
+    "id": "kejriwal2021kg",
+    "type": "book",
+    "title": "Knowledge Graphs: Fundamentals, Techniques, and Applications",
+    "author": [{ "given": "Mayank", "family": "Kejriwal" }],
+    "issued": { "date-parts": [[2021]] },
+    "publisher": "MIT Press",
+    "ISBN": "9780262045094",
+    "keyword": "knowledge-graph, RDF"
+  },
+  {
+    "id": "glimm2014reasoners",
+    "type": "article-journal",
+    "title": "A Survey of Description Logic Reasoners",
+    "author": [
+      { "given": "Birte", "family": "Glimm" },
+      { "given": "Ian", "family": "Horrocks" }
+    ],
+    "container-title": "Semantic Web Journal",
+    "issued": { "date-parts": [[2014]] },
+    "DOI": "10.3233/SW-2012-0083",
+    "abstract": "Surveys the main OWL DL reasoners and the optimization techniques they employ.",
+    "keyword": ["survey", "description-logic"]
+  }
+]

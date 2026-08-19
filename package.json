@@ -248,6 +248,10 @@
         "title": "Sci2Code: Logout"
       },
       {
+        "command": "zoteroReplica.openLibrary",
+        "title": "Zotero Replica: Open Library"
+      },
+      {
         "command": "zotero.refresh",
         "title": "Refresh Library",
         "icon": "$(refresh)"

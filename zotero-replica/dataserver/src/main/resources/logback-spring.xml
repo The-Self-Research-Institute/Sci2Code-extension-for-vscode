@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logback configuration for the OntoCode dataserver microservice.
+
+  Mirrors the rolling/retention policy already used by ontology-auth and
+  ontology-gateway (same shape, different APP_NAME):
+    - Console appender keeps a one-line layout.
+    - File appender writes to ${LOG_DIR:-logs}/dataserver.log.
+    - Rolling policy is size + time (one file/day, 50MB split, gzip on roll,
+      30-day retention, 5GB total cap).
+    - LOG_DIR / LOGGING_LEVEL_* can be overridden via env vars without
+      touching this file.
+
+  Uses `logback-spring.xml` (not `logback.xml`) so Spring Boot picks it up
+  after profile/property resolution, same reason as the other services.
+-->
+<configuration>
+
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="dataserver"/>
+    <property name="LOG_DIR" value="${LOG_DIR:-logs}"/>
+    <property name="LOG_FILE" value="${LOG_DIR}/${APP_NAME}.log"/>
+    <property name="ARCHIVE_PATTERN" value="${LOG_DIR}/archive/${APP_NAME}.%d{yyyy-MM-dd}.%i.log.gz"/>
+
+    <!-- MDC pattern placeholder (`ctx`) — populated once the JWT-based
+         identity filter is added in Phase 2, matching the MdcLoggingFilter
+         convention used by ontology-auth/ontology-editor/ontology-swrl. -->
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${APP_NAME},%thread] %logger{36} [%X{ctx:-no-ctx}] - %msg%n"/>
+
+    <!-- ──── Console ──── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ──── Rolling file appender ──── -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE_PATTERN}</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ──── Async wrapper to keep request threads off disk I/O ──── -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <!-- ──── Levels ──── -->
+    <root level="${LOGGING_LEVEL_ROOT:-INFO}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+
+    <logger name="self.research.ontology" level="${LOGGING_LEVEL_APP:-DEBUG}"/>
+    <logger name="org.springframework.web" level="INFO"/>
+</configuration>
