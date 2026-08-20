@@ -1,5 +1,3 @@
----
-
 # 3rd-Party Software for [Sci2Code-extension-for-vscode](https://github.com/The-Self-Research-Institute/Sci2Code-extension-for-vscode)
 
 The following 3rd-party software packages may be used by or distributed with **Sci2Code-extension-for-vscode**.  Any information relevant to third-party vendors listed below are collected using common, reasonable means.
