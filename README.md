@@ -11,6 +11,7 @@
 <p align="center">
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/version-short/SelfResearchInstitute.sci2code.svg?label=VS%20Code%20Marketplace&color=blue" alt="Marketplace Version"></a>
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2FThe-Self-Research-Institute%2FSci2Code-extension-for-vscode?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2FThe-Self-Research-Institute%2FSci2Code-extension-for-vscode.svg?type=shield"/></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/installs-short/SelfResearchInstitute.sci2code.svg?label=installs&color=brightgreen" alt="Installs"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/downloads-short/SelfResearchInstitute.sci2code.svg?label=downloads&color=green" alt="Downloads"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code&ssr=false#review-details"><img src="https://vsmarketplacebadges.dev/rating-short/SelfResearchInstitute.sci2code.svg?label=rating&color=gold" alt="Rating"></a>
@@ -19,6 +20,9 @@
 ---
 
 **Sci2Code** bridges the gap between your research library and your code. Seamlessly integrate [Zotero](https://www.zotero.org/), your trusted reference manager, directly into **Visual Studio Code**. Easily link academic articles, papers, and other resources from your Zotero library as inline citations in your code using JSDoc, PyDoc, and other documentation standards.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FThe-Self-Research-Institute%2FSci2Code-extension-for-vscode.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FThe-Self-Research-Institute%2FSci2Code-extension-for-vscode?ref=badge_large)
 
 ## 🚀 Features
 
