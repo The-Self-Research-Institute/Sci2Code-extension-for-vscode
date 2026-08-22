@@ -7,7 +7,12 @@ import { ItemDetails } from './components/ItemDetails';
 import { ResizeHandle } from './components/ResizeHandle';
 import { Dialog } from './components/Dialog';
 import { ImportDialog, type ImportSummary } from './components/ImportDialog';
+import { LoginForm } from './components/LoginForm';
+import { ApiKeyDialog } from './components/ApiKeyDialog';
+import { ManageTagsDialog } from './components/ManageTagsDialog';
+import { ExportDialog } from './components/ExportDialog';
 import { useLibraryData } from './state/useLibraryData';
+import { logout as logoutAuthProvider } from '../api/authProvider';
 import {
   getStoredSidebarWidth,
   setStoredSidebarWidth,
@@ -62,15 +67,31 @@ export function App() {
     tags,
     loading,
     error,
+    authAvailable,
     refresh,
     removeFromCollection,
     moveToTrash,
+    restoreFromTrash,
+    updateItemField,
+    updateItemCreators,
+    permanentlyDeleteItems,
     createItem,
+    createStandaloneNote,
     createCollection,
+    renameCollection,
+    deleteCollection,
+    addItemsToExistingCollection,
     importItems,
     addTag,
     removeTag,
     renameTag,
+    renameTagAcrossLibrary,
+    deleteTagAcrossLibrary,
+    addNote,
+    updateNote,
+    addAttachment,
+    downloadAttachment,
+    deleteChildItem,
   } = useLibraryData();
 
   const [selection, setSelection] = useState<SidebarSelection>({ type: 'library' });
@@ -89,8 +110,17 @@ export function App() {
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
+  const [permanentDeleteConfirmOpen, setPermanentDeleteConfirmOpen] = useState(false);
+  const [emptyTrashConfirmOpen, setEmptyTrashConfirmOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importResultMessage, setImportResultMessage] = useState<string | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [apiKeyOpen, setApiKeyOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [manageTagsOpen, setManageTagsOpen] = useState(false);
+  const [renamingCollectionKey, setRenamingCollectionKey] = useState<string | null>(null);
+  const [renameCollectionName, setRenameCollectionName] = useState('');
+  const [deleteCollectionConfirmKey, setDeleteCollectionConfirmKey] = useState<string | null>(null);
 
   // Attachments (and, in the future, notes) are child items - Zotero's own
   // item list only ever shows top-level items, with children reachable via
@@ -170,6 +200,11 @@ export function App() {
     setLastClickedIndex(index);
   };
 
+  const handleSelectAll = () => {
+    setSelectedKeys(new Set(visibleKeys));
+    setLastClickedIndex(visibleKeys.length - 1);
+  };
+
   const handleToggleColumn = (column: keyof ColumnVisibility) => {
     setColumns((prev) => ({ ...prev, [column]: !prev[column] }));
   };
@@ -212,6 +247,10 @@ export function App() {
   const canCreate = !createDisabledReason;
   const canRemoveFromCollection = selection.type === 'collection' && selectedItems.length > 0;
   const canMoveToTrash = selection.type !== 'trash' && selectedItems.length > 0;
+  const trashedItems = useMemo(() => topLevelItems.filter((it) => it.data.deleted), [topLevelItems]);
+  const canDeletePermanently = isTrashSelection && selectedItems.length > 0;
+  const hasTrashedItems = trashedItems.length > 0;
+  const canRestore = isTrashSelection && selectedItems.length > 0;
 
   const handleCreateItem = async (itemType: string) => {
     const collectionKey = selection.type === 'collection' ? selection.key : undefined;
@@ -273,6 +312,42 @@ export function App() {
     }
   };
 
+  const handleRestore = async () => {
+    setActionError(null);
+    try {
+      await Promise.all(selectedItems.map((item) => restoreFromTrash(item.key)));
+      setSelectedKeys(new Set());
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to restore item(s) from Trash.');
+    }
+  };
+
+  const handleCreateStandaloneNote = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const key = await createStandaloneNote();
+      setSelectedKeys(new Set([key]));
+      setLastClickedIndex(null);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to create note.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeletePermanently = () => {
+    permanentlyDeleteItems(selectedItems.map((item) => item.key));
+    setSelectedKeys(new Set());
+    setPermanentDeleteConfirmOpen(false);
+  };
+
+  const handleEmptyTrash = () => {
+    permanentlyDeleteItems(trashedItems.map((item) => item.key));
+    setSelectedKeys(new Set());
+    setEmptyTrashConfirmOpen(false);
+  };
+
   const handleRequestImport = () => {
     setImportResultMessage(null);
     setImportOpen(true);
@@ -286,6 +361,30 @@ export function App() {
     }
     setImportResultMessage(parts.join(' — '));
   };
+
+  const handleLogout = async () => {
+    await logoutAuthProvider();
+    refresh();
+  };
+
+  // Persistent-session gate: while genuinely logged out (never on a day/week/
+  // month timer - see useLibraryData's authAvailable), show only the login
+  // screen. `loading` briefly covers the very first authStatus check so this
+  // doesn't flash before a valid persisted session is found.
+  if (!loading && !authAvailable) {
+    return (
+      <div className="app-shell app-shell--unauthenticated">
+        <div className="app-shell__auth-prompt">
+          <h1>Zotero Replica</h1>
+          <p>Log in or create an account to access your library.</p>
+          <button type="button" className="toolbar__button toolbar__button--primary" onClick={() => setLoginOpen(true)}>
+            Log In / Register
+          </button>
+        </div>
+        {loginOpen && <LoginForm onClose={() => setLoginOpen(false)} onAuthenticated={refresh} />}
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -305,8 +404,20 @@ export function App() {
         canMoveToTrash={canMoveToTrash}
         onRemoveFromCollection={handleRemoveFromCollection}
         onMoveToTrash={() => setTrashConfirmOpen(true)}
+        isTrashView={isTrashSelection}
+        canDeletePermanently={canDeletePermanently}
+        onDeletePermanently={() => setPermanentDeleteConfirmOpen(true)}
+        hasTrashedItems={hasTrashedItems}
+        onEmptyTrash={() => setEmptyTrashConfirmOpen(true)}
+        canRestore={canRestore}
+        onRestore={handleRestore}
+        onCreateStandaloneNote={handleCreateStandaloneNote}
+        onExport={() => setExportOpen(true)}
+        onManageTags={() => setManageTagsOpen(true)}
         columns={columns}
         onToggleColumn={handleToggleColumn}
+        onLogout={handleLogout}
+        onOpenApiKey={() => setApiKeyOpen(true)}
       />
       {error && <div className="app-shell__banner app-shell__banner--error">{error}</div>}
       {actionError && <div className="app-shell__banner app-shell__banner--error">{actionError}</div>}
@@ -320,7 +431,18 @@ export function App() {
       )}
       <div className="app-shell__body">
         <div className="app-shell__nav app-shell__pane" style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}>
-          <Sidebar collections={collections} groups={groups} items={topLevelItems} selection={selection} onSelect={handleSelect} />
+          <Sidebar
+            collections={collections}
+            groups={groups}
+            items={topLevelItems}
+            selection={selection}
+            onSelect={handleSelect}
+            onRequestRenameCollection={(key, currentName) => {
+              setRenamingCollectionKey(key);
+              setRenameCollectionName(currentName);
+            }}
+            onRequestDeleteCollection={(key) => setDeleteCollectionConfirmKey(key)}
+          />
           <TagSelector tags={tags} selected={activeTags} onToggle={handleToggleTag} onClear={() => setActiveTags(new Set())} />
         </div>
         <ResizeHandle onDrag={handleSidebarDrag} onDragEnd={handleSidebarDragEnd} />
@@ -335,6 +457,8 @@ export function App() {
               allItems={items}
               selectedKeys={selectedKeys}
               onRowClick={handleRowClick}
+              onSelectAll={handleSelectAll}
+              onDeleteKey={canMoveToTrash ? () => setTrashConfirmOpen(true) : undefined}
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSort}
@@ -352,9 +476,38 @@ export function App() {
             onAddTag={addTag}
             onRemoveTag={removeTag}
             onRenameTag={renameTag}
+            onAddNote={addNote}
+            onUpdateNote={updateNote}
+            onDeleteNote={deleteChildItem}
+            onAddAttachment={addAttachment}
+            onDownloadAttachment={downloadAttachment}
+            onDeleteAttachment={deleteChildItem}
+            onUpdateField={updateItemField}
+            onUpdateCreators={updateItemCreators}
+            onAddToCollection={addItemsToExistingCollection}
           />
         </div>
       </div>
+
+      {apiKeyOpen && <ApiKeyDialog onClose={() => setApiKeyOpen(false)} />}
+
+      {manageTagsOpen && (
+        <ManageTagsDialog
+          tags={tags}
+          onRenameTag={renameTagAcrossLibrary}
+          onDeleteTag={deleteTagAcrossLibrary}
+          onClose={() => setManageTagsOpen(false)}
+        />
+      )}
+
+      {exportOpen && (
+        <ExportDialog
+          selectedItems={selectedItems}
+          visibleItems={visibleItems}
+          libraryItems={topLevelItems.filter((it) => !it.data.deleted)}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
 
       {importOpen && (
         <ImportDialog
@@ -408,6 +561,101 @@ export function App() {
             </button>
             <button type="button" className="toolbar__button toolbar__button--danger" onClick={handleMoveToTrash} disabled={busy}>
               Move to Trash
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {permanentDeleteConfirmOpen && (
+        <Dialog title="Permanently Delete" onClose={() => setPermanentDeleteConfirmOpen(false)}>
+          <p className="dialog__hint">
+            Permanently delete the selected {selectedItems.length} item{selectedItems.length === 1 ? '' : 's'}?
+          </p>
+          <p className="dialog__hint dialog__hint--error">This action cannot be undone.</p>
+          <div className="dialog__actions">
+            <button type="button" className="toolbar__button" onClick={() => setPermanentDeleteConfirmOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="toolbar__button toolbar__button--danger" onClick={handleDeletePermanently}>
+              Delete Permanently
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {renamingCollectionKey && (
+        <Dialog title="Rename Collection" onClose={() => setRenamingCollectionKey(null)}>
+          <input
+            type="text"
+            className="dialog__input"
+            autoFocus
+            value={renameCollectionName}
+            onChange={(e) => setRenameCollectionName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && renameCollectionName.trim()) {
+                renameCollection(renamingCollectionKey, renameCollectionName.trim());
+                setRenamingCollectionKey(null);
+              }
+            }}
+          />
+          <div className="dialog__actions">
+            <button type="button" className="toolbar__button" onClick={() => setRenamingCollectionKey(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="toolbar__button toolbar__button--primary"
+              disabled={!renameCollectionName.trim()}
+              onClick={() => {
+                renameCollection(renamingCollectionKey, renameCollectionName.trim());
+                setRenamingCollectionKey(null);
+              }}
+            >
+              Rename
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {deleteCollectionConfirmKey && (
+        <Dialog title="Delete Collection" onClose={() => setDeleteCollectionConfirmKey(null)}>
+          <p className="dialog__hint">
+            Delete "{collections.find((c) => c.key === deleteCollectionConfirmKey)?.data.name ?? ''}"? Items in it are not deleted, only the
+            collection itself.
+          </p>
+          <div className="dialog__actions">
+            <button type="button" className="toolbar__button" onClick={() => setDeleteCollectionConfirmKey(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="toolbar__button toolbar__button--danger"
+              onClick={() => {
+                deleteCollection(deleteCollectionConfirmKey);
+                if (selection.type === 'collection' && selection.key === deleteCollectionConfirmKey) {
+                  setSelection({ type: 'library' });
+                }
+                setDeleteCollectionConfirmKey(null);
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {emptyTrashConfirmOpen && (
+        <Dialog title="Empty Trash" onClose={() => setEmptyTrashConfirmOpen(false)}>
+          <p className="dialog__hint">
+            All {trashedItems.length} item{trashedItems.length === 1 ? '' : 's'} currently in Trash will be permanently deleted.
+          </p>
+          <p className="dialog__hint dialog__hint--error">This action cannot be undone.</p>
+          <div className="dialog__actions">
+            <button type="button" className="toolbar__button" onClick={() => setEmptyTrashConfirmOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="toolbar__button toolbar__button--danger" onClick={handleEmptyTrash}>
+              Empty Trash
             </button>
           </div>
         </Dialog>

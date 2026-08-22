@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import self.research.ontology.dataserver.dto.TagRenameRequest;
+import self.research.ontology.dataserver.dto.TagRenameResponse;
 import self.research.ontology.dataserver.dto.TagResponse;
 import self.research.ontology.dataserver.model.Library;
 import self.research.ontology.dataserver.security.AuthenticatedUser;
@@ -66,6 +68,27 @@ public class TagController {
 		permissionService.requireWrite(library, caller);
 		tagService.deleteTags(library, TagService.splitOrList(tagParam), ifUnmodifiedSinceVersion);
 		return ResponseEntity.noContent().build();
+	}
+
+	/**
+	 * Library-wide tag rename - the one genuinely new endpoint identified in
+	 * the P1 blueprint's API design (§04): no existing endpoint can atomically
+	 * rename a tag across every item that carries it (bulk delete already
+	 * existed; bulk rename did not). Mirrors the existing bulk-delete
+	 * endpoint's OR-list-free, single-name shape and its version-guard
+	 * convention (If-Unmodified-Since-Version against the LIBRARY version,
+	 * since this touches many items in one logical operation).
+	 */
+	@PatchMapping({"/users/{ownerId}/tags/{name}", "/groups/{ownerId}/tags/{name}"})
+	public TagRenameResponse renameTag(
+			HttpServletRequest request, @PathVariable String ownerId, @PathVariable String name,
+			@AuthenticationPrincipal AuthenticatedUser caller,
+			@RequestHeader(value = "If-Unmodified-Since-Version", required = false) Long ifUnmodifiedSinceVersion,
+			@RequestBody TagRenameRequest body) {
+		Library library = libraryAccessResolver.resolve(request, ownerId, caller);
+		permissionService.requireWrite(library, caller);
+		int renamedCount = tagService.renameTagAcrossLibrary(library, name, body.newName(), ifUnmodifiedSinceVersion);
+		return new TagRenameResponse(renamedCount);
 	}
 
 	/** #33/#34/#35: tags used within all/top/trashed items. */

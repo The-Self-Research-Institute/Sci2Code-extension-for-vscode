@@ -15,4 +15,12 @@ export class WebAuthProvider implements AuthProvider {
     if (!decoded) return { available: false };
     return { available: true, userId: ownerIdFromToken(decoded), email: decoded.email };
   }
+
+  async logout(): Promise<void> {
+    try {
+      window.localStorage.removeItem('authToken');
+    } catch {
+      /* non-browser host */
+    }
+  }
 }

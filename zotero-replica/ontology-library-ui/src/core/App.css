@@ -87,7 +87,8 @@ body {
 .sidebar,
 .tag-selector__list,
 .item-list,
-.item-details {
+.item-details,
+.import-preview__table-wrap {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
@@ -95,7 +96,8 @@ body {
 .sidebar::-webkit-scrollbar,
 .tag-selector__list::-webkit-scrollbar,
 .item-list::-webkit-scrollbar,
-.item-details::-webkit-scrollbar {
+.item-details::-webkit-scrollbar,
+.import-preview__table-wrap::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
@@ -103,14 +105,16 @@ body {
 .sidebar::-webkit-scrollbar-track,
 .tag-selector__list::-webkit-scrollbar-track,
 .item-list::-webkit-scrollbar-track,
-.item-details::-webkit-scrollbar-track {
+.item-details::-webkit-scrollbar-track,
+.import-preview__table-wrap::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .sidebar::-webkit-scrollbar-thumb,
 .tag-selector__list::-webkit-scrollbar-thumb,
 .item-list::-webkit-scrollbar-thumb,
-.item-details::-webkit-scrollbar-thumb {
+.item-details::-webkit-scrollbar-thumb,
+.import-preview__table-wrap::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
   border-radius: var(--radius-sm);
   border: 2px solid transparent;
@@ -120,7 +124,8 @@ body {
 .sidebar::-webkit-scrollbar-thumb:hover,
 .tag-selector__list::-webkit-scrollbar-thumb:hover,
 .item-list::-webkit-scrollbar-thumb:hover,
-.item-details::-webkit-scrollbar-thumb:hover {
+.item-details::-webkit-scrollbar-thumb:hover,
+.import-preview__table-wrap::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }
@@ -129,6 +134,31 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+}
+
+.app-shell--unauthenticated {
+  align-items: center;
+  justify-content: center;
+}
+
+.app-shell__auth-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text);
+}
+
+.app-shell__auth-prompt h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.app-shell__auth-prompt p {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .app-shell__body {
@@ -309,7 +339,12 @@ body.resizing-col * {
   line-height: 1.3;
 }
 
-.toolbar__button:hover:not(:disabled) {
+/* Scoped away from --primary/--danger: those variants own their background
+   via the :hover rules below. Without this exclusion, this rule's
+   `background` silently overwrote their colored fill on hover, leaving
+   light/dark contrast text stranded on a near-neutral background - the
+   "button nearly disappears on hover" bug. */
+.toolbar__button:hover:not(:disabled):not(.toolbar__button--primary):not(.toolbar__button--danger) {
   background: var(--bg-subtle);
 }
 
@@ -324,7 +359,10 @@ body.resizing-col * {
   border-color: var(--accent);
 }
 
-.toolbar__button--primary:hover:not(:disabled) {
+.toolbar__button--primary:hover:not(:disabled),
+.toolbar__button--primary:active:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
   filter: brightness(1.08);
 }
 
@@ -334,8 +372,20 @@ body.resizing-col * {
   border-color: var(--danger-text);
 }
 
-.toolbar__button--danger:hover:not(:disabled) {
+.toolbar__button--danger:hover:not(:disabled),
+.toolbar__button--danger:active:not(:disabled) {
+  background: var(--danger-bg);
+  color: var(--danger-text);
   filter: brightness(1.08);
+}
+
+/* On these two variants the button's own fill is already --accent/--danger-bg,
+   so the default focus ring (drawn just inside the edge) would blend into it.
+   Push the ring outward onto the page background instead, where it already
+   has good contrast in both themes. */
+.toolbar__button--primary:focus-visible,
+.toolbar__button--danger:focus-visible {
+  outline-offset: 2px;
 }
 
 .toolbar__dropdown {
@@ -463,6 +513,13 @@ body.resizing-col * {
   outline-offset: -1px;
 }
 
+/* The list itself (not each row) is the actual focusable/keyboard target -
+   see ItemList.tsx's Ctrl+A handling - so it needs its own focus ring. */
+.item-list:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* Sidebar */
 .sidebar {
   overflow-y: auto;
@@ -546,6 +603,63 @@ body.resizing-col * {
 .sidebar__item--active .sidebar__count {
   color: inherit;
   opacity: 0.85;
+}
+
+.sidebar__collection-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.sidebar__item--collection:hover .sidebar__collection-actions {
+  display: flex;
+}
+
+.sidebar__collection-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sidebar__collection-action:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* The row's own background goes solid --accent when selected (see
+   .sidebar__item--active below) - without this, these buttons kept their
+   plain --text-muted color, which read as washed-out/low-contrast against
+   the accent blue. Inheriting the row's --accent-contrast text color keeps
+   the icons themselves visible whether or not the collection is selected;
+   the hover states below use the same fixed --danger-bg/--danger-text and
+   --bg-subtle/--text pairs the rest of the app already uses for hover/danger
+   states (not a translucent overlay against --accent), since those pairs are
+   already guaranteed readable in both themes independent of the accent color. */
+.sidebar__item--active .sidebar__collection-action {
+  color: inherit;
+}
+
+.sidebar__item--active .sidebar__collection-action:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.sidebar__collection-action--delete:hover {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.sidebar__item--active .sidebar__collection-action--delete:hover {
+  background: var(--danger-bg);
+  color: var(--danger-text);
 }
 
 .sidebar__empty {
@@ -892,6 +1006,118 @@ body.resizing-col * {
   font-size: 10.5px;
 }
 
+.item-details__title-input {
+  font: inherit;
+  font-weight: 600;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  margin: -2px -6px;
+  background: transparent;
+  color: var(--text);
+}
+
+.item-details__title-input:hover,
+.item-details__title-input:focus {
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+.item-details__field-input,
+.item-details__field-textarea {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  margin: -3px -6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.item-details__field-textarea {
+  resize: vertical;
+  min-height: 40px;
+}
+
+.item-details__field-input:hover,
+.item-details__field-input:focus,
+.item-details__field-textarea:hover,
+.item-details__field-textarea:focus {
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+.item-details__creator-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item-details__creator-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.item-details__creator-type {
+  flex: 0 0 108px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.item-details__creator-name {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.item-details__creator-icon-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.item-details__creator-icon-button:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.item-details__creator-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.item-details__creator-add {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.item-details__field-error {
+  color: var(--danger-text);
+  font-size: 11.5px;
+  margin: 4px 0 0;
+}
+
 .item-details__tags-editor {
   display: flex;
   flex-direction: column;
@@ -915,7 +1141,7 @@ body.resizing-col * {
   font-size: 11px;
 }
 
-/* type: 1 - imported/auto-generated (see core/import/autoTags.ts), visually subdued and dashed
+/* type: 1 - came from an import (core/import/mapToItem.ts), visually subdued and dashed
    to distinguish from tags the user typed themselves in this app (type 0/absent). */
 .item-details__tag--auto {
   border-style: dashed;
@@ -924,6 +1150,14 @@ body.resizing-col * {
 
 .item-details__tag--manual {
   color: var(--text);
+}
+
+/* Border-style alone (dashed vs. solid) reads as too subtle a difference at
+   this size to reliably notice at a glance - this icon makes "came from an
+   import" unambiguous without relying on spotting a 1px border difference. */
+.item-details__tag-auto-icon {
+  color: var(--text-muted);
+  flex: 0 0 auto;
 }
 
 .item-details__tag-label {
@@ -1069,6 +1303,98 @@ body.resizing-col * {
 .item-details__attachment-meta {
   color: var(--text-muted);
   font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.item-details__attachment-action {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 11px;
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.item-details__attachment-action:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  text-decoration: none;
+}
+
+.item-details__attachments,
+.item-details__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-details__note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-details__note {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: var(--bg-subtle);
+}
+
+.item-details__note-text {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.item-details__note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.item-details__note-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.item-details__note-link--primary {
+  color: var(--accent);
+}
+
+.item-details__note-link--danger {
+  color: var(--danger-text);
+}
+
+.item-details__note-edit-textarea,
+.item-details__note-add-textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  margin-bottom: 6px;
+}
+
+.item-details__note-add {
+  display: flex;
+  flex-direction: column;
 }
 
 .item-details__related-link {
@@ -1131,6 +1457,16 @@ body.resizing-col * {
   color: var(--danger-text);
 }
 
+.dialog__field-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .dialog__input {
   width: 100%;
   border: 1px solid var(--border);
@@ -1148,9 +1484,100 @@ body.resizing-col * {
   gap: 8px;
 }
 
+.api-key__reveal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.api-key__value {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  user-select: all;
+}
+
 /* Import preview needs real width for its table - New Collection/Move to Trash keep the default 320px. */
 .dialog--wide {
   width: min(720px, calc(100vw - 32px));
+}
+
+.manage-tags__list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+
+.manage-tags__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.manage-tags__row:last-child {
+  border-bottom: none;
+}
+
+.manage-tags__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-tags__count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.manage-tags__edit-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 3px 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.manage-tags__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.manage-tags__icon-button:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.manage-tags__icon-button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .import-preview__checkbox-row {

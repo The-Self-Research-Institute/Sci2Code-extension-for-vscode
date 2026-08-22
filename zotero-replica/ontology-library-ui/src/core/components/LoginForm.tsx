@@ -10,10 +10,13 @@ interface LoginFormProps {
 }
 
 /**
- * Minimal replica-owned login/register UI for the standalone web host. The
- * VS Code host never renders this - it gets its auth status from the
- * extension (see VsCodeAuthProvider). Stores the JWT under the same
- * 'authToken' key WebAuthProvider/WebTransport already read/send.
+ * Replica-owned login/register UI, shared by both hosts. On the web host,
+ * the response carries the real JWT, stored under the 'authToken' key
+ * WebAuthProvider/WebTransport read/send. On the VS Code host, the
+ * extension has already persisted the token in SecretStorage and strips it
+ * before relaying the response here (see webviewPanel.ts) - there is
+ * nothing to store client-side, `onAuthenticated` alone triggers the
+ * subsequent `getAuthStatus()` re-check that picks up the new session.
  */
 export function LoginForm({ onClose, onAuthenticated }: LoginFormProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -27,7 +30,9 @@ export function LoginForm({ onClose, onAuthenticated }: LoginFormProps) {
     setError(null);
     try {
       const response = mode === 'login' ? await login(email, password) : await register(email, password);
-      window.localStorage.setItem('authToken', response.token);
+      if (response.token) {
+        window.localStorage.setItem('authToken', response.token);
+      }
       onAuthenticated();
       onClose();
     } catch (e) {

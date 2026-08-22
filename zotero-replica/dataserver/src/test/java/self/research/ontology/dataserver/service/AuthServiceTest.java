@@ -14,9 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import self.research.ontology.dataserver.dto.AuthResponse;
 import self.research.ontology.dataserver.exception.ConflictException;
+import self.research.ontology.dataserver.exception.NotFoundException;
 import self.research.ontology.dataserver.exception.UnauthorizedException;
 import self.research.ontology.dataserver.model.AppUser;
 import self.research.ontology.dataserver.repository.UserRepository;
+import self.research.ontology.dataserver.security.AuthenticatedUser;
 import self.research.ontology.dataserver.security.JwtService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,5 +110,28 @@ class AuthServiceTest {
 
 		assertThatThrownBy(() -> authService.login("ghost@example.com", "whatever"))
 			.isInstanceOf(UnauthorizedException.class);
+	}
+
+	@Test
+	void refresh_existingAccount_returnsFreshToken() {
+		AppUser user = new AppUser();
+		user.setId("user-1");
+		user.setEmail("researcher@example.com");
+		user.setRoles(List.of("ROLE_USER"));
+		when(userRepository.findByEmailIgnoreCase("researcher@example.com")).thenReturn(Optional.of(user));
+
+		AuthResponse response = authService.refresh(new AuthenticatedUser("researcher@example.com", "user-1", List.of("ROLE_USER")));
+
+		assertThat(response.userId()).isEqualTo("user-1");
+		assertThat(response.email()).isEqualTo("researcher@example.com");
+		assertThat(jwtService.parseAndValidate(response.token()).email()).isEqualTo("researcher@example.com");
+	}
+
+	@Test
+	void refresh_accountNoLongerExists_throwsNotFound() {
+		when(userRepository.findByEmailIgnoreCase("ghost@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> authService.refresh(new AuthenticatedUser("ghost@example.com", "user-1", List.of())))
+			.isInstanceOf(NotFoundException.class);
 	}
 }

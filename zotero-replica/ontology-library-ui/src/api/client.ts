@@ -1,5 +1,5 @@
 import { WebTransport } from '../host/web/webTransport';
-import type { RequestOptions, Transport } from './transport';
+import type { BinaryDownloadResult, RequestOptions, ResponseWithVersion, Transport, UploadFileInput } from './transport';
 
 export { ApiError } from './transport';
 
@@ -24,4 +24,9 @@ export const apiClient = {
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     transport.request<T>('PATCH', path, { ...options, body }),
   delete: <T>(path: string, options?: RequestOptions) => transport.request<T>('DELETE', path, options),
+  /** Like get(), but also resolves the library-version header - see requestWithVersion's doc comment. */
+  getWithVersion: <T>(path: string, options?: RequestOptions): Promise<ResponseWithVersion<T>> =>
+    transport.requestWithVersion<T>('GET', path, options),
+  uploadFile: (path: string, file: UploadFileInput, options?: RequestOptions) => transport.uploadFile(path, file, options),
+  downloadBinary: (path: string, options?: RequestOptions): Promise<BinaryDownloadResult> => transport.downloadBinary(path, options),
 };

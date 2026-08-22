@@ -1,6 +1,5 @@
 import type { Item, ItemData, ItemTag } from '../../api/types';
 import { generateLocalKey } from '../state/localLibraryStore';
-import { generateAutoTags } from './autoTags';
 import { mergeTagLists } from '../state/tagNormalize';
 import type { ImportedRecord } from './types';
 
@@ -8,14 +7,17 @@ const USER_LIB = { id: 'me', type: 'user' as const };
 
 /**
  * Maps one parsed record onto the Replica's real Item model - no separate
- * "imported item" shape. Combines the source file's own keywords with our
- * deterministic auto-tags (deduped), all marked `type: 1` (automatic) so
- * the item details pane can visually distinguish them from tags the user
- * types themselves (type 0/absent) - see ItemDetails.tsx's TagsTab.
+ * "imported item" shape. Uses only the tags actually present in the source
+ * file (deduped/normalized - no automatic tag generation, removed per
+ * explicit requirement: .bib/.ris/etc. files already carry their own
+ * keywords). Still marked `type: 1` (Zotero's "automatic" convention) so the
+ * item details pane can visually distinguish tags that came from an import
+ * from tags the user types themselves in this app (type 0/absent) - see
+ * ItemDetails.tsx's TagsTab.
  */
 export function mapToItem(record: ImportedRecord, options: { collectionKey?: string } = {}): Item {
   const key = generateLocalKey();
-  const combinedTagNames = mergeTagLists(record.tags, generateAutoTags(record));
+  const combinedTagNames = mergeTagLists(record.tags);
   const tags: ItemTag[] = combinedTagNames.map((tag) => ({ tag, type: 1 }));
 
   const data: ItemData = {

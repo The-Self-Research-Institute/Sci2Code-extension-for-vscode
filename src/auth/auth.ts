@@ -59,6 +59,7 @@ export const generateSession = async (
         ZOTERO_CONTEXT.ZOTERO_ITEMS,
         zoteroCollectionsRes
       );
+      contextService.setContext(ZOTERO_CONTEXT.ITEMS_SOURCE, "zotero");
 
       sidebarProvider.refresh();
 
@@ -80,9 +81,13 @@ export const generateSession = async (
         commands.executeCommand('sci2code.showLogs');
       }
     });
-    // Clear the invalid session
-    contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
-    contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+    // Clear the invalid session - but only wipe ZOTERO_ITEMS/LOGGEDIN if
+    // they're currently populated FROM this legacy Zotero path, not from a
+    // Zotero Replica sync (see ZOTERO_CONTEXT.ITEMS_SOURCE's doc comment).
+    if (contextService.getContext(ZOTERO_CONTEXT.ITEMS_SOURCE) !== "replica") {
+      contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+      contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+    }
     return { isSessionGenerated: false };
   }
 };

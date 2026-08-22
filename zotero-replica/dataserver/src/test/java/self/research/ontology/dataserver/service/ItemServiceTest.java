@@ -16,6 +16,7 @@ import self.research.ontology.dataserver.exception.NotFoundException;
 import self.research.ontology.dataserver.exception.PreconditionFailedException;
 import self.research.ontology.dataserver.exception.PreconditionRequiredException;
 import self.research.ontology.dataserver.model.Item;
+import self.research.ontology.dataserver.model.ItemTag;
 import self.research.ontology.dataserver.model.Library;
 import self.research.ontology.dataserver.repository.ItemRepository;
 
@@ -79,7 +80,8 @@ class ItemServiceTest {
 		assertThat(created.getData()).containsEntry("title", "My Book");
 		assertThat(created.getCreators()).hasSize(1);
 		assertThat(created.getCreators().get(0).getFirstName()).isEqualTo("Jane");
-		assertThat(created.getTags()).containsExactly("history");
+		assertThat(created.getTags()).extracting(ItemTag::getTag).containsExactly("history");
+		assertThat(created.getTags().get(0).getType()).isZero();
 		assertThat(created.getVersion()).isEqualTo(1L);
 	}
 
@@ -406,9 +408,9 @@ class ItemServiceTest {
 	@Test
 	void applyQuery_filtersByTag() {
 		Item a = itemWithTitleAndType("A", "Physics", "book");
-		a.getTags().add("science");
+		a.getTags().add(new ItemTag("science", 0));
 		Item b = itemWithTitleAndType("B", "Web Page", "webpage");
-		b.getTags().add("internet");
+		b.getTags().add(new ItemTag("internet", 0));
 
 		var result = itemService.applyQuery(List.of(a, b), new ItemQueryParams(
 			null, null, null, "science", null, null, null));

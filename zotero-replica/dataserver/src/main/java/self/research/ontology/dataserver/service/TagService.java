@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import self.research.ontology.dataserver.dto.TagResponse;
 import self.research.ontology.dataserver.exception.NotFoundException;
 import self.research.ontology.dataserver.model.Item;
+import self.research.ontology.dataserver.model.ItemTag;
 import self.research.ontology.dataserver.model.Library;
 import self.research.ontology.dataserver.repository.ItemRepository;
 import self.research.ontology.dataserver.util.VersionGuard;
@@ -91,8 +92,8 @@ public class TagService {
 		long newVersion = libraryService.bumpVersion(library);
 		for (String name : names) {
 			boolean removedFromAtLeastOneItem = false;
-			for (Item item : itemRepository.findByLibraryIdAndTagsContaining(library.getId(), name)) {
-				if (item.getTags().remove(name)) {
+			for (Item item : itemRepository.findByLibraryIdAndTagName(library.getId(), name)) {
+				if (item.getTags().removeIf(t -> t.getTag().equals(name))) {
 					item.setVersion(newVersion);
 					itemRepository.save(item);
 					removedFromAtLeastOneItem = true;
@@ -105,6 +106,36 @@ public class TagService {
 	}
 
 	/**
+	 * P1 blueprint's one genuinely new endpoint: renames a tag across every
+	 * item in the library atomically (well, per-item-document atomically;
+	 * there is no multi-document transaction here, matching the rest of this
+	 * project's disclosed no-transactions architecture). Existing per-item
+	 * rename (useLibraryData.renameTag) only touches one item at a time and
+	 * requires the caller to already have that item loaded - this is the
+	 * library-wide equivalent, backing the "Manage Tags" screen.
+	 */
+	public int renameTagAcrossLibrary(Library library, String oldName, String newName, Long ifUnmodifiedSinceVersion) {
+		VersionGuard.requireForExisting(ifUnmodifiedSinceVersion, library.getVersion());
+		long newVersion = libraryService.bumpVersion(library);
+		int renamedCount = 0;
+		for (Item item : itemRepository.findByLibraryIdAndTagName(library.getId(), oldName)) {
+			boolean changed = false;
+			for (ItemTag t : item.getTags()) {
+				if (t.getTag().equals(oldName)) {
+					t.setTag(newName);
+					changed = true;
+				}
+			}
+			if (changed) {
+				item.setVersion(newVersion);
+				itemRepository.save(item);
+				renamedCount++;
+			}
+		}
+		return renamedCount;
+	}
+
+	/**
 	 * Tags used within a given item subset (items/tags, items/top/tags,
 	 * collection-scoped listings, a single item's own tags, ...). numItems
 	 * is scoped to the given subset, not the whole library — a documented
@@ -114,8 +145,8 @@ public class TagService {
 	public List<TagResponse> tagsFromItems(List<Item> items) {
 		Map<String, Long> counts = new LinkedHashMap<>();
 		for (Item item : items) {
-			for (String tag : item.getTags()) {
-				counts.merge(tag, 1L, Long::sum);
+			for (ItemTag tag : item.getTags()) {
+				counts.merge(tag.getTag(), 1L, Long::sum);
 			}
 		}
 		return counts.entrySet().stream()
@@ -136,10 +167,14 @@ public class TagService {
 
 	@SuppressWarnings("unchecked")
 	private List<TagResponse> aggregateTagCounts(String libraryId) {
+		// Group by "tags.tag" (the nested field), not the whole "tags"
+		// embedded document - grouping by the whole document would incorrectly
+		// split the same tag name into separate groups whenever it appears
+		// with a different `type` on different items.
 		Aggregation agg = Aggregation.newAggregation(
 			Aggregation.match(Criteria.where("libraryId").is(libraryId)),
 			Aggregation.unwind("tags"),
-			Aggregation.group("tags").count().as("numItems")
+			Aggregation.group("tags.tag").count().as("numItems")
 		);
 		AggregationResults<Map> results = mongoTemplate.aggregate(agg, "ds_items", Map.class);
 		List<TagResponse> out = new ArrayList<>();

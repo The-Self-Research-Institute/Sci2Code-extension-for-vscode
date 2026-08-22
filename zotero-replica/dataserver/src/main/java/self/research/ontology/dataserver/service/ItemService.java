@@ -18,6 +18,7 @@ import self.research.ontology.dataserver.exception.DataserverException;
 import self.research.ontology.dataserver.exception.NotFoundException;
 import self.research.ontology.dataserver.model.Creator;
 import self.research.ontology.dataserver.model.Item;
+import self.research.ontology.dataserver.model.ItemTag;
 import self.research.ontology.dataserver.model.Library;
 import self.research.ontology.dataserver.repository.ItemRepository;
 import self.research.ontology.dataserver.util.KeyGenerator;
@@ -259,8 +260,8 @@ public class ItemService {
 			}
 		}
 		return items.stream()
-			.filter(i -> included.isEmpty() || i.getTags().stream().anyMatch(included::contains))
-			.filter(i -> excluded.isEmpty() || i.getTags().stream().noneMatch(excluded::contains))
+			.filter(i -> included.isEmpty() || i.getTags().stream().map(ItemTag::getTag).anyMatch(included::contains))
+			.filter(i -> excluded.isEmpty() || i.getTags().stream().map(ItemTag::getTag).noneMatch(excluded::contains))
 			.toList();
 	}
 
@@ -350,10 +351,10 @@ public class ItemService {
 			item.setCreators(parseCreators(body.get("creators")));
 		}
 		if (body.containsKey("tags")) {
-			item.setTags(parseStringList(body.get("tags"), true));
+			item.setTags(parseTagList(body.get("tags")));
 		}
 		if (body.containsKey("collections")) {
-			item.setCollections(parseStringList(body.get("collections"), false));
+			item.setCollections(parseStringList(body.get("collections")));
 		}
 		if (body.containsKey("relations") && body.get("relations") instanceof Map<?, ?> rel) {
 			Map<String, Object> relations = new LinkedHashMap<>();
@@ -383,15 +384,42 @@ public class ItemService {
 		return creators;
 	}
 
-	private List<String> parseStringList(Object raw, boolean tagObjectsAllowed) {
+	private List<String> parseStringList(Object raw) {
 		List<String> result = new ArrayList<>();
 		if (raw instanceof List<?> list) {
 			for (Object o : list) {
 				if (o instanceof String s) {
 					result.add(s);
 				}
-				else if (tagObjectsAllowed && o instanceof Map<?, ?> m && m.get("tag") != null) {
-					result.add(String.valueOf(m.get("tag")));
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Accepts either {@code {tag, type}} objects (the normal shape - see
+	 * ItemResponseMapper/api/types.ts's ItemTag) or a bare tag name string
+	 * (defaults to type 0/manual) for backward compatibility with any caller
+	 * still sending the pre-migration plain-string shape.
+	 */
+	@SuppressWarnings("unchecked")
+	private List<ItemTag> parseTagList(Object raw) {
+		List<ItemTag> result = new ArrayList<>();
+		if (raw instanceof List<?> list) {
+			for (Object o : list) {
+				if (o instanceof Map<?, ?> m && m.get("tag") != null) {
+					int type = 0;
+					Object typeVal = m.get("type");
+					if (typeVal instanceof Number n) {
+						type = n.intValue();
+					}
+					else if (typeVal != null) {
+						type = "1".equals(String.valueOf(typeVal)) ? 1 : 0;
+					}
+					result.add(new ItemTag(String.valueOf(m.get("tag")), type));
+				}
+				else if (o instanceof String s) {
+					result.add(new ItemTag(s, 0));
 				}
 			}
 		}

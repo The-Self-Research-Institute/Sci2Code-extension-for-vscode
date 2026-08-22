@@ -209,16 +209,18 @@ export function ImportDialog({ onClose, existingItems, currentCollectionKey, onC
                     <td>
                       <input type="checkbox" checked={row.selected} onChange={() => toggleRow(row.index)} />
                     </td>
-                    <td className="import-preview__title-cell">
-                      {row.record.title ?? '(untitled)'}
-                      {row.duplicate && (
-                        <span
-                          className="import-preview__dup-badge"
-                          title={`${row.duplicate.reason} as "${String(row.duplicate.item.data.title ?? '')}"`}
-                        >
-                          Duplicate
-                        </span>
-                      )}
+                    <td>
+                      <div className="import-preview__title-cell">
+                        {row.record.title ?? '(untitled)'}
+                        {row.duplicate && (
+                          <span
+                            className="import-preview__dup-badge"
+                            title={`${row.duplicate.reason} as "${String(row.duplicate.item.data.title ?? '')}"`}
+                          >
+                            Duplicate
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>{summarizeCreators(row.record.creators)}</td>
                     <td>{extractYear(row.record.date)}</td>

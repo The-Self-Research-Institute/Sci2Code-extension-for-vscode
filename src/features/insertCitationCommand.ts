@@ -135,10 +135,21 @@ export async function insertCitationCommand(statusItem: vscode.StatusBarItem) {
     );
   }
 
-  const userId = selectedItem.zoteroItem?.library?.id;
-  const itemKey = selectedItem.zoteroItem?.key;
-  const metadata = { codeId, functionName };
-  saveMetadataToZotero(userId, itemKey, metadata);
+  // Attaching the codeId back onto the source item is a LEGACY Zotero-only
+  // feature (it PATCHes api.zotero.org - see saveMetadataToZotero/zotero/api.ts)
+  // that never applies to Replica items: there is no equivalent write-back to
+  // the Replica dataserver yet, and a Replica item's key/library.id would
+  // mean nothing to the real Zotero API even if a legacy session happens to
+  // be cached. Gating on ITEMS_SOURCE (set by zoteroReplica.syncToSci2Code /
+  // auth/auth.ts) is the minimal authentication-scoped fix for the
+  // cross-path coupling this caused - see ZOTERO_CONTEXT.ITEMS_SOURCE's doc
+  // comment in system/constants.ts.
+  if (contextService.getContext(ZOTERO_CONTEXT.ITEMS_SOURCE) !== "replica") {
+    const userId = selectedItem.zoteroItem?.library?.id;
+    const itemKey = selectedItem.zoteroItem?.key;
+    const metadata = { codeId, functionName };
+    saveMetadataToZotero(userId, itemKey, metadata);
+  }
 }
 
 export const insertCitationFromSidebarCommand = (zoteroItem: any) => {
@@ -162,10 +173,15 @@ export const insertCitationFromSidebarCommand = (zoteroItem: any) => {
   if (snippet) {
     editor.insertSnippet(snippet);
 
-    const userId = zoteroItem?.library?.id;
-    const itemKey = zoteroItem?.key;
-    const metadata = { codeId, functionName };
-    saveMetadataToZotero(userId, itemKey, metadata);
+    // See insertCitationCommand's matching comment above for why this is
+    // gated on ITEMS_SOURCE: this is a legacy Zotero-only write-back with no
+    // Replica equivalent, and must not fire for Replica-sourced items.
+    if (contextService.getContext(ZOTERO_CONTEXT.ITEMS_SOURCE) !== "replica") {
+      const userId = zoteroItem?.library?.id;
+      const itemKey = zoteroItem?.key;
+      const metadata = { codeId, functionName };
+      saveMetadataToZotero(userId, itemKey, metadata);
+    }
 
     vscode.window.showInformationMessage(
       `Sci2Code: Inserted citation for "${titleOfItem}".`

@@ -61,6 +61,13 @@
           "ignoreSync": true,
           "order": 0
         },
+        "sci2code.replicaDataserverUrl": {
+          "type": "string",
+          "default": "http://localhost:9089",
+          "markdownDescription": "Base URL of the Zotero Replica dataserver (see `zotero-replica/dataserver`). Used by \"Zotero Replica: Open Library\" and the Replica sync commands - no Zotero account or API key required.",
+          "scope": "application",
+          "order": 1
+        },
         "sci2code.triggers": {
           "type": "array",
           "items": {
@@ -250,6 +257,22 @@
       {
         "command": "zoteroReplica.openLibrary",
         "title": "Zotero Replica: Open Library"
+      },
+      {
+        "command": "zoteroReplica.loginWithApiKey",
+        "title": "Zotero Replica: Login with API Key"
+      },
+      {
+        "command": "zoteroReplica.syncToSci2Code",
+        "title": "Zotero Replica: Sync Library into Sci2Code"
+      },
+      {
+        "command": "zoteroReplica.logoutApiKey",
+        "title": "Zotero Replica: Disconnect API Key"
+      },
+      {
+        "command": "zoteroReplica.logout",
+        "title": "Zotero Replica: Logout"
       },
       {
         "command": "zotero.refresh",

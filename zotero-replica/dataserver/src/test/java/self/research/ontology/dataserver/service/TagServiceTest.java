@@ -17,6 +17,7 @@ import self.research.ontology.dataserver.exception.NotFoundException;
 import self.research.ontology.dataserver.exception.PreconditionFailedException;
 import self.research.ontology.dataserver.exception.PreconditionRequiredException;
 import self.research.ontology.dataserver.model.Item;
+import self.research.ontology.dataserver.model.ItemTag;
 import self.research.ontology.dataserver.model.Library;
 import self.research.ontology.dataserver.repository.ItemRepository;
 
@@ -138,15 +139,15 @@ class TagServiceTest {
 		Item item = new Item();
 		item.setKey("ABCD1234");
 		item.setLibraryId("lib1");
-		item.getTags().add("history");
-		item.getTags().add("keep-me");
+		item.getTags().add(new ItemTag("history", 0));
+		item.getTags().add(new ItemTag("keep-me", 0));
 
-		when(itemRepository.findByLibraryIdAndTagsContaining("lib1", "history")).thenReturn(List.of(item));
+		when(itemRepository.findByLibraryIdAndTagName("lib1", "history")).thenReturn(List.of(item));
 		when(libraryService.bumpVersion(library)).thenReturn(6L);
 
 		tagService.deleteTags(library, List.of("history"), 5L);
 
-		assertThat(item.getTags()).containsExactly("keep-me");
+		assertThat(item.getTags()).extracting(ItemTag::getTag).containsExactly("keep-me");
 		assertThat(item.getVersion()).isEqualTo(6L);
 		verify(itemRepository).save(item);
 		verify(deletedLogService).record("lib1", "tag", "history", 6L);
@@ -154,7 +155,7 @@ class TagServiceTest {
 
 	@Test
 	void deleteTags_itemWithoutTheTag_isNotSaved_noTombstoneRecorded() {
-		when(itemRepository.findByLibraryIdAndTagsContaining("lib1", "ghost")).thenReturn(List.of());
+		when(itemRepository.findByLibraryIdAndTagName("lib1", "ghost")).thenReturn(List.of());
 		when(libraryService.bumpVersion(library)).thenReturn(6L);
 
 		tagService.deleteTags(library, List.of("ghost"), 5L);
@@ -168,10 +169,10 @@ class TagServiceTest {
 	@Test
 	void tagsFromItems_countsAcrossItems() {
 		Item a = new Item();
-		a.getTags().add("history");
-		a.getTags().add("shared");
+		a.getTags().add(new ItemTag("history", 0));
+		a.getTags().add(new ItemTag("shared", 0));
 		Item b = new Item();
-		b.getTags().add("shared");
+		b.getTags().add(new ItemTag("shared", 1));
 
 		var result = tagService.tagsFromItems(List.of(a, b));
 
@@ -182,6 +183,54 @@ class TagServiceTest {
 	@Test
 	void tagsFromItems_emptyList_returnsEmpty() {
 		assertThat(tagService.tagsFromItems(List.of())).isEmpty();
+	}
+
+	@Test
+	void renameTagAcrossLibrary_withoutVersion_throws428() {
+		assertThatThrownBy(() -> tagService.renameTagAcrossLibrary(library, "old", "new", null))
+			.isInstanceOf(PreconditionRequiredException.class);
+	}
+
+	@Test
+	void renameTagAcrossLibrary_withStaleVersion_throws412() {
+		assertThatThrownBy(() -> tagService.renameTagAcrossLibrary(library, "old", "new", 3L))
+			.isInstanceOf(PreconditionFailedException.class);
+	}
+
+	@Test
+	void renameTagAcrossLibrary_renamesOnEveryMatchingItem_leavesOtherTagsAlone() {
+		Item a = new Item();
+		a.setKey("A");
+		a.getTags().add(new ItemTag("old", 1));
+		a.getTags().add(new ItemTag("unrelated", 0));
+		Item b = new Item();
+		b.setKey("B");
+		b.getTags().add(new ItemTag("old", 0));
+
+		when(itemRepository.findByLibraryIdAndTagName("lib1", "old")).thenReturn(List.of(a, b));
+		when(libraryService.bumpVersion(library)).thenReturn(6L);
+
+		int renamed = tagService.renameTagAcrossLibrary(library, "old", "new", 5L);
+
+		assertThat(renamed).isEqualTo(2);
+		assertThat(a.getTags()).extracting(ItemTag::getTag).containsExactlyInAnyOrder("new", "unrelated");
+		assertThat(a.getTags().stream().filter(t -> t.getTag().equals("new")).findFirst().get().getType()).isEqualTo(1);
+		assertThat(b.getTags()).extracting(ItemTag::getTag).containsExactly("new");
+		assertThat(a.getVersion()).isEqualTo(6L);
+		assertThat(b.getVersion()).isEqualTo(6L);
+		verify(itemRepository).save(a);
+		verify(itemRepository).save(b);
+	}
+
+	@Test
+	void renameTagAcrossLibrary_noMatchingItems_returnsZero_savesNothing() {
+		when(itemRepository.findByLibraryIdAndTagName("lib1", "ghost")).thenReturn(List.of());
+		when(libraryService.bumpVersion(library)).thenReturn(6L);
+
+		int renamed = tagService.renameTagAcrossLibrary(library, "ghost", "new", 5L);
+
+		assertThat(renamed).isZero();
+		verify(itemRepository, org.mockito.Mockito.never()).save(any());
 	}
 
 	@Test

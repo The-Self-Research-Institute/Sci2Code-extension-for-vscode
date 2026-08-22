@@ -7,6 +7,7 @@ import java.util.Map;
 
 import self.research.ontology.dataserver.model.Creator;
 import self.research.ontology.dataserver.model.Item;
+import self.research.ontology.dataserver.model.ItemTag;
 import self.research.ontology.dataserver.model.Library;
 
 /**
@@ -39,7 +40,19 @@ public final class ItemResponseMapper {
 			creators.add(cm);
 		}
 		data.put("creators", creators);
-		data.put("tags", item.getTags().stream().map(t -> Map.of("tag", t)).toList());
+		// Round-trips the manual/automatic distinction (see ItemTag's javadoc) -
+		// previously this was `Map.of("tag", t)` over a List<String>, which had
+		// no `type` to return at all: the confirmed root cause of imported and
+		// manually-typed tags becoming visually indistinguishable after any
+		// refresh (P1 blueprint's tag-model migration entry).
+		List<Map<String, Object>> tagList = new ArrayList<>();
+		for (ItemTag t : item.getTags()) {
+			Map<String, Object> tm = new LinkedHashMap<>();
+			tm.put("tag", t.getTag());
+			tm.put("type", t.getType());
+			tagList.add(tm);
+		}
+		data.put("tags", tagList);
 		data.put("collections", item.getCollections());
 		data.put("relations", item.getRelations());
 		if (item.getParentItemKey() != null) {

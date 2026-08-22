@@ -1,5 +1,6 @@
 # dataserver (Maven)
 dataserver/target/
+dataserver/logs/
 
 # ontology-library-ui (Vite/npm)
 ontology-library-ui/node_modules/

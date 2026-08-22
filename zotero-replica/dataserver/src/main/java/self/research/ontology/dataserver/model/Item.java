@@ -42,8 +42,8 @@ public class Item {
 
 	private List<Creator> creators = new ArrayList<>();
 
-	/** Tag names only in this batch — full Tags feature (independent vocabulary, batch delete, etc.) is Phase 6. */
-	private List<String> tags = new ArrayList<>();
+	/** Each tag carries its own manual/automatic {@code type} - see {@link ItemTag}. */
+	private List<ItemTag> tags = new ArrayList<>();
 
 	private List<String> collections = new ArrayList<>();
 

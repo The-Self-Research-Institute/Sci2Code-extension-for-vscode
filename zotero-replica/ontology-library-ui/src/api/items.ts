@@ -16,6 +16,47 @@ export function listTrashedItems(owner: LibraryOwner, params?: ItemQueryParams):
   return apiClient.get<Item[]>(`${itemsPath(owner)}/trash`, { params: params as Record<string, string | number> });
 }
 
+const DRAIN_PAGE_SIZE = 500;
+/**
+ * Safety backstop, not a real product limit - keeps a pathological library
+ * from locking up the UI in an unbounded fetch loop. Far beyond any
+ * realistic personal reference library; if ever hit, the library silently
+ * showing fewer than its true item count is a known, disclosed edge case.
+ */
+const DRAIN_MAX_ITEMS = 20000;
+
+/**
+ * Repeatedly pages through a list endpoint (PaginationUtil's start/limit +
+ * Total-Results header) until every matching item has been fetched, rather
+ * than the previous hard single-request `limit` cap that silently hid any
+ * item beyond it. Used for the main library/trash load, where sidebar counts,
+ * tag aggregation, and search all need the complete set to be correct.
+ */
+async function drainAllPages(path: string, params?: Record<string, string | number | undefined>): Promise<Item[]> {
+  const all: Item[] = [];
+  let start = 0;
+  for (;;) {
+    const { data, totalResults } = await apiClient.getWithVersion<Item[]>(path, {
+      params: { ...params, start, limit: DRAIN_PAGE_SIZE },
+    });
+    all.push(...data);
+    const total = totalResults ?? all.length;
+    if (data.length === 0 || all.length >= total || all.length >= DRAIN_MAX_ITEMS) break;
+    start += DRAIN_PAGE_SIZE;
+  }
+  return all;
+}
+
+/** Same as listItems(), but fetches every matching item regardless of library size (see drainAllPages's doc comment). */
+export function listAllItemsFull(owner: LibraryOwner, params?: ItemQueryParams): Promise<Item[]> {
+  return drainAllPages(itemsPath(owner), params as Record<string, string | number | undefined>);
+}
+
+/** Same as listTrashedItems(), but fetches every trashed item regardless of trash size. */
+export function listAllTrashedItemsFull(owner: LibraryOwner, params?: ItemQueryParams): Promise<Item[]> {
+  return drainAllPages(`${itemsPath(owner)}/trash`, params as Record<string, string | number | undefined>);
+}
+
 export function listCollectionItems(
   owner: LibraryOwner,
   collectionKey: string,
@@ -74,4 +115,9 @@ export function removeItemFromCollection(owner: LibraryOwner, collectionKey: str
   return apiClient.delete<void>(`${ownerBase(owner)}/collections/${collectionKey}/items/${itemKey}`, {
     expectEmptyBody: true,
   });
+}
+
+/** Adds existing top-level items to a collection (ItemService.addToCollection - rejects child items server-side). */
+export function addItemsToCollection(owner: LibraryOwner, collectionKey: string, itemKeys: string[]): Promise<void> {
+  return apiClient.post<void>(`${ownerBase(owner)}/collections/${collectionKey}/items`, itemKeys, { expectEmptyBody: true });
 }

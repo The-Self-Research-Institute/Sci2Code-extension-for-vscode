@@ -53,4 +53,47 @@ class SchemaServiceTest {
 	void getAllFields_isSupersetOfPerTypeFields() {
 		assertThat(schemaService.getAllFields()).contains("title", "ISBN", "DOI", "url");
 	}
+
+	@Test
+	void itemTypes_includesBookSectionAndConferencePaper() {
+		assertThat(schemaService.getItemTypes()).contains("bookSection", "conferencePaper");
+	}
+
+	@Test
+	void getFieldsForType_note_includesNoteField() {
+		assertThat(schemaService.getFieldsForType("note")).contains("note");
+	}
+
+	@Test
+	void validateFieldsForType_bookSection_acceptsBookTitle() {
+		schemaService.validateFieldsForType("bookSection", Set.of("title", "bookTitle"));
+	}
+
+	@Test
+	void itemTypes_includesP1ExpansionTypes() {
+		assertThat(schemaService.getItemTypes()).contains(
+			"magazineArticle", "newspaperArticle", "letter", "manuscript", "presentation", "dataset", "document",
+			"encyclopediaArticle", "dictionaryEntry", "computerProgram", "videoRecording", "audioRecording",
+			"podcast", "blogPost", "email", "interview", "map", "patent");
+	}
+
+	@Test
+	void itemTypes_totalCount_is27() {
+		assertThat(schemaService.getItemTypes()).hasSize(27);
+	}
+
+	@Test
+	void getFieldsForType_dataset_includesDOIAndRepository() {
+		assertThat(schemaService.getFieldsForType("dataset")).contains("DOI", "repository", "versionNumber");
+	}
+
+	@Test
+	void getCreatorTypesForType_videoRecording_includesDirector() {
+		assertThat(schemaService.getCreatorTypesForType("videoRecording")).contains("director", "producer");
+	}
+
+	@Test
+	void getCreatorTypesForType_podcast_includesPodcaster() {
+		assertThat(schemaService.getCreatorTypesForType("podcast")).contains("podcaster", "guest");
+	}
 }

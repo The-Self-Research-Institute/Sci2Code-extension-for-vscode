@@ -17,6 +17,14 @@ import { ZOTERO_CONTEXT } from "./system/constants";
 import { Sci2CodeAPI, CitationItem } from "./api/types";
 import { getZoteroItemTitle } from "./utils/zotero.utils";
 import { ZoteroReplicaPanel } from "./zoteroReplica/webviewPanel";
+import {
+  fetchReplicaLibraryItems,
+  logoutOfReplica,
+  loginWithReplicaApiKey,
+  disconnectReplicaApiKey,
+  ReplicaNotAuthenticatedError,
+  ReplicaApiKeyInvalidError,
+} from "./zoteroReplica/replicaLibraryClient";
 
 let zoteroStatusItem: vscode.StatusBarItem;
 let completionProviders: vscode.Disposable[] = [];
@@ -70,18 +78,26 @@ export function activate(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration("sci2code");
         const apiKey = config.get<string>("apiKey");
         
+        // Both branches below only clear ZOTERO_ITEMS when it's currently
+        // populated FROM the legacy Zotero path - if Zotero Replica sync
+        // populated it instead (ITEMS_SOURCE === "replica"), changing/clearing
+        // the unrelated legacy sci2code.apiKey setting must not wipe those
+        // items out from under Sci2Code (see ZOTERO_CONTEXT.ITEMS_SOURCE's
+        // doc comment in system/constants.ts).
+        const currentSource = contextService.getContext(ZOTERO_CONTEXT.ITEMS_SOURCE);
         if (apiKey && apiKey.trim()) {
           // Update the secret storage with the new API key
           const authProvider = new ZoteroAuthenticationProvider(context.secrets);
           await context.secrets.store(ZoteroAuthenticationProvider.secretKey, apiKey);
-          
-          // Clear old context and trigger re-authentication with the new key
-          contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
-          contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
-          
-          // Re-authenticate with new key
-          await activateSession(false);
-        } else {
+
+          if (currentSource !== "replica") {
+            // Clear old context and trigger re-authentication with the new key
+            contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+            contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+            // Re-authenticate with new key
+            await activateSession(false);
+          }
+        } else if (currentSource !== "replica") {
           // If API key is cleared, logout
           contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
           contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
@@ -109,7 +125,79 @@ export function activate(context: vscode.ExtensionContext) {
   // Does not touch any existing Zotero/Sci2Code state or commands.
   context.subscriptions.push(
     vscode.commands.registerCommand("zoteroReplica.openLibrary", () => {
-      ZoteroReplicaPanel.createOrShow(context.extensionUri);
+      ZoteroReplicaPanel.createOrShow(context);
+    }),
+    // Connects Sci2Code to the Replica dataserver using a Replica API key
+    // (generated from the webview's "API Access" panel, see apiKeySession.ts) -
+    // a credential separate from the webview's own login session. This is the
+    // ONLY step required to authorize Sci2Code; the resolved userId is learned
+    // from the dataserver itself (GET /auth/whoami), never typed by the user.
+    vscode.commands.registerCommand("zoteroReplica.loginWithApiKey", async () => {
+      const input = await vscode.window.showInputBox({
+        ignoreFocusOut: true,
+        password: true,
+        prompt: "Paste your Zotero Replica API key",
+        placeHolder: "Generate one from \"Zotero Replica: Open Library\" -> API Access",
+      });
+      if (!input) return;
+      try {
+        const identity = await loginWithReplicaApiKey(context, input);
+        vscode.window.showInformationMessage(`Zotero Replica: connected as ${identity.email}.`);
+      } catch (e) {
+        vscode.window.showErrorMessage(e instanceof Error ? e.message : "Failed to connect with that API key.");
+      }
+    }),
+    // Disconnects Sci2Code from Replica (clears the API key only) - does NOT
+    // log the Replica webview itself out (see "zoteroReplica.logout" below).
+    vscode.commands.registerCommand("zoteroReplica.logoutApiKey", async () => {
+      await disconnectReplicaApiKey(context);
+      if (contextService.getContext(ZOTERO_CONTEXT.ITEMS_SOURCE) === "replica") {
+        contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+        contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+        contextService.setContext(ZOTERO_CONTEXT.ITEMS_SOURCE, undefined);
+        sidebarProvider.refresh();
+      }
+      vscode.window.showInformationMessage("Sci2Code disconnected from Zotero Replica.");
+    }),
+    // Zotero-free path into Sci2Code's existing citation/bibliography features:
+    // populates the SAME ZOTERO_CONTEXT.ZOTERO_ITEMS the Zotero sidebar/commands
+    // already consume, sourced from the Replica dataserver instead of zotero.org -
+    // no Zotero account, API key (Zotero's), or Desktop app involved. Also
+    // stamps ZOTERO_CONTEXT.ITEMS_SOURCE = "replica" so the legacy Zotero
+    // auth/logout/config-change handlers (auth/auth.ts, providers/authProvider.ts,
+    // this file's onDidChangeConfiguration below) know NOT to wipe these items
+    // out from under Sci2Code when the user only logged out of legacy Zotero.
+    vscode.commands.registerCommand("zoteroReplica.syncToSci2Code", async () => {
+      try {
+        const items = await fetchReplicaLibraryItems(context);
+        contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, items);
+        contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
+        contextService.setContext(ZOTERO_CONTEXT.ITEMS_SOURCE, "replica");
+        sidebarProvider.refresh();
+        vscode.window.showInformationMessage(`Zotero Replica: synced ${items.length} item(s) into Sci2Code.`);
+      } catch (e) {
+        if (e instanceof ReplicaNotAuthenticatedError) {
+          const choice = await vscode.window.showWarningMessage(e.message, "Login with API Key");
+          if (choice === "Login with API Key") {
+            vscode.commands.executeCommand("zoteroReplica.loginWithApiKey");
+          }
+        } else if (e instanceof ReplicaApiKeyInvalidError) {
+          const choice = await vscode.window.showWarningMessage(e.message, "Login with API Key");
+          if (choice === "Login with API Key") {
+            vscode.commands.executeCommand("zoteroReplica.loginWithApiKey");
+          }
+        } else {
+          vscode.window.showErrorMessage(e instanceof Error ? e.message : "Failed to sync from Zotero Replica.");
+        }
+      }
+    }),
+    // Logs the Replica WEBVIEW itself out (clears its own login session) only.
+    // Does NOT touch ZOTERO_CONTEXT.ZOTERO_ITEMS/ITEMS_SOURCE: Sci2Code's
+    // connection is the separate API key (see "zoteroReplica.logoutApiKey"
+    // above), which this webview session has no bearing on by design.
+    vscode.commands.registerCommand("zoteroReplica.logout", async () => {
+      await logoutOfReplica(context);
+      vscode.window.showInformationMessage("Logged out of Zotero Replica.");
     })
   );
 

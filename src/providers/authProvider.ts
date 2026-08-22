@@ -169,6 +169,25 @@ export class ZoteroAuthenticationProvider
       const token = input.trim();
       lastAttempt = token;
 
+      // A Replica API key (see zotero-replica/dataserver's ApiKeyService,
+      // prefix "rk_") is a DIFFERENT credential from a Zotero API key and is
+      // never valid here - catch it before wasting a round-trip to
+      // api.zotero.org, and point the user at the command that actually
+      // accepts it, instead of the generic "doesn't look like a valid Zotero
+      // API key" message below (which is technically true but unhelpful for
+      // this specific, easy-to-make mistake).
+      if (token.startsWith("rk_")) {
+        const retry = await window.showErrorMessage(
+          "That's a Zotero Replica API key, not a Zotero API key - they're different credentials. Run \"Zotero Replica: Login with API Key\" instead to connect Sci2Code to your Replica library.",
+          { modal: true },
+          "Try Again"
+        );
+        if (retry !== "Try Again") {
+          throw new Error("Zotero sign-in cancelled.");
+        }
+        continue;
+      }
+
       const validation = await this.validateApiKey(token);
       if (validation.valid) {
         await this.secretStorage.store(
@@ -241,8 +260,15 @@ export class ZoteroAuthenticationProvider
 
     await this.secretStorage.delete(ZoteroAuthenticationProvider.secretKey);
 
-    contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
-    contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+    // Only clear ZOTERO_ITEMS if it's currently populated FROM the legacy
+    // Zotero path - if Zotero Replica sync populated it instead
+    // (ITEMS_SOURCE === "replica"), logging out of legacy Zotero must not wipe
+    // those items out from under Sci2Code (see ZOTERO_CONTEXT.ITEMS_SOURCE's
+    // doc comment in system/constants.ts).
+    if (contextService.getContext(ZOTERO_CONTEXT.ITEMS_SOURCE) !== "replica") {
+      contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+      contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+    }
 
     this._onDidChangeSessions.fire({
       removed: [new ZoteroSession(token)],
