@@ -16,6 +16,11 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code&ssr=false#review-details"><img src="https://vsmarketplacebadges.dev/rating-short/SelfResearchInstitute.sci2code.svg?label=rating&color=gold" alt="Rating"></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/sponsors/The-Self-Research-Institute"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-red" alt="Sponsor"></a>
+  <a href="https://selfresearch.org/donate"><img src="https://img.shields.io/badge/Donate-selfresearch.org-blueviolet" alt="Donate"></a>
+</p>
+
 ---
 
 **Sci2Code** bridges the gap between your research library and your code. Seamlessly integrate [Zotero](https://www.zotero.org/), your trusted reference manager, directly into **Visual Studio Code**. Easily link academic articles, papers, and other resources from your Zotero library as inline citations in your code using JSDoc, PyDoc, and other documentation standards.
