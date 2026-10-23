@@ -13,6 +13,7 @@ import {
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { getUserDetails } from "../zotero/api";
+import { libraryCache } from "../services/libraryCache";
 
 class ZoteroSession implements AuthenticationSession {
   // We don't know the user's account name, so we'll just use a constant
@@ -242,7 +243,10 @@ export class ZoteroAuthenticationProvider
     await this.secretStorage.delete(ZoteroAuthenticationProvider.secretKey);
 
     contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+    contextService.setContext(ZOTERO_CONTEXT.ZOTERO_COLLECTIONS, []);
+    contextService.setContext(ZOTERO_CONTEXT.CACHED, false);
     contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
+    await libraryCache.clear();
 
     this._onDidChangeSessions.fire({
       removed: [new ZoteroSession(token)],
