@@ -1,9 +1,9 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Sci2Code"
-version: 1.0.2
-date-released: 2025-05-29
-license: AGPL-3.0-or-later
+version: 1.0.11
+date-released: 2026-10-23
+license: MIT
 
 authors:
   - name: "The Self Research Institute"

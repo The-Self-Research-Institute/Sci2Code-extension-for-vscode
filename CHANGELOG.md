@@ -4,6 +4,25 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-10-23
+
+### Added
+- **Citation hover**: Hover over a Zotero key in a citation comment (JS/TS, Python, R, Julia, including notebook cells) to see the item's title, authors, year, publication and DOI, with "Open" and "Copy key" actions.
+- **One-click Sci2Code sidebar**: The Zotero view is now a single panel. Click a reference to insert its citation straight into the editor. Hover a row for quick actions (open in Zotero, copy key, preview details). It has live search (Ctrl/Cmd+F, with a clear button) across your whole library, results paged 5 at a time, Library and "Cited in file" tabs with count badges, sorting by year, title, author or type, and per-type icons with a file-type badge for attachments. Filters for collection (subcollections included) and tag sit under the search box behind the sliders button. "Add manual citation" is in the header, and the status line under the list is a button that opens your citation template. A sync button sits next to the status. "Generate bibliography" has a menu for inserting at the cursor, copying to the clipboard, writing to a file, or scanning the workspace. Items with no title are flagged for review, and the panel follows your VS Code theme.
+- **Instant, always-current library.** Your library is cached on disk, so the sidebar opens immediately with your last synced references, even offline, while it syncs in the background. Sync is incremental: Zotero's library version is checked first, nothing is downloaded if it has not changed, and otherwise only changed items are fetched and deletions and trashed items are removed. It re-checks every 5 minutes and when the window regains focus, so changes made in Zotero Desktop show up on their own. The cache is cleared on logout or when the API key changes, and a changed or rejected key never reuses another account's data.
+- **Search also asks Zotero.** Typing a search queries your whole library locally and Zotero's own search, including text inside notes and attachments, and merges the results (with a "searching Zotero..." indicator). If Zotero cannot be reached it falls back to your library only and says so.
+- **Progressive loading.** On a first sync the list fills in as pages arrive instead of waiting for the whole library. Pages that have not loaded yet show placeholder rows and the pager shows "loading...", so jumping ahead never shows a blank list. Search shows the matches you already have immediately, with a "Searching Zotero..." row until Zotero's results are merged in.
+
+### Fixed
+- **Logout now sticks.** Logging out left the API key in `sci2code.apiKey`, and the next session check silently re-adopted it, so you were logged back in after a reload. Logout now clears that setting as well. The sidebar header has a logout button (with a confirmation), since the command was previously only in the Command Palette.
+- **"Cited in file" now counts every citation in the file.** Citations whose key is not in your Zotero library (manual citations made before saving to Zotero, or items deleted from it) were silently ignored, so a file with two citations showed 1. They now appear with a "Not in your Zotero library" flag, and an "Add to Zotero" button creates the item and relinks the comment to its new key. Generate bibliography now warns about any citations it has to leave out.
+- **Manual citations are now saved to Zotero.** "Insert Manual Citation" previously only wrote a comment with a throwaway `MANUAL_` key, so the reference never reached your library and could not appear under "Cited in file" or in a bibliography. It now creates the item in your Zotero library (this needs an API key with write access), uses its real key, and shows it in the sidebar immediately. If saving fails (read-only key, offline, not logged in), you get a warning and the citation is inserted locally as before.
+- **Libraries with more than 25 items now load completely.** The library was fetched in a single request, which Zotero caps at 25 items, so larger libraries were silently truncated in the sidebar, completions, hover and bibliography. Items are now loaded in pages of 100 with a progress indicator, skipping child notes and attachments. Rate limits and transient network errors are retried, a library that changes mid-load is reloaded, and a partial load shows a warning instead of failing silently.
+
+### Changed
+- The old Zotero Account and Zotero Documents tree views and their commands (Search Library, Clear Search, Sort Zotero Documents, Copy DOI, Copy Zotero Key, Open on zotero.org) are replaced by the new panel; open and copy actions are in the reference details.
+- **License**: Relicensed from AGPL-3.0-or-later to the MIT License.
+
 ## [1.0.10] - 2026-07-07
 
 ### Added

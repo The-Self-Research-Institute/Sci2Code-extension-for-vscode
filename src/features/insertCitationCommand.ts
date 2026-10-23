@@ -11,6 +11,9 @@ import {
   getCitationDetail,
 } from "../utils/zotero.utils";
 import { renderTemplate } from "./templateService";
+import { ZoteroAuthenticationProvider } from "../providers/authProvider";
+import { createZoteroItem } from "../zotero/api";
+import { ManualCitationInput, buildManualItemData } from "../zotero/manualItem";
 
 interface ZoteroQuickPickItem extends vscode.QuickPickItem {
   zoteroItem: any;
@@ -245,10 +248,6 @@ export async function insertManualCitationCommand() {
     ignoreFocusOut: true,
   });
 
-  // Generate unique key for manual citation
-  const manualKey = `MANUAL_${Date.now()}`;
-
-  // Extract context information
   const document = editor.document;
   const position = editor.selection.active;
   const fileName = extractFileName(document.fileName);
@@ -262,33 +261,33 @@ export async function insertManualCitationCommand() {
 
   const codeId = generateCodeId(functionName || fileName, fileName);
 
-  // Create a mock Zotero item with manual data
-  const manualZoteroItem = {
-    key: manualKey,
-    data: {
-      title: title || "Untitled",
-      itemType: itemType,
-      creators: authors
-        ? authors.split(",").map((author) => {
-          const trimmed = author.trim();
-          const parts = trimmed.split(" ");
-          return {
-            firstName: parts.slice(0, -1).join(" ") || "",
-            lastName: parts[parts.length - 1] || trimmed,
-          };
-        })
-        : [],
-      date: year || "",
-      DOI: doi || "",
-      publicationTitle: publicationTitle || "",
-      abstractNote: "",
-    },
-    links: {
-      alternate: {
-        href: url || "",
-      },
-    },
+  const input = {
+    title,
+    authors,
+    year,
+    itemType,
+    doi,
+    url,
+    publicationTitle,
   };
+
+  let manualZoteroItem: any;
+  let savedToZotero = false;
+  try {
+    manualZoteroItem = await createManualItemInZotero(input);
+    savedToZotero = true;
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    vscode.window.showWarningMessage(
+      `Sci2Code: Could not save "${title}" to Zotero: ${reason.replace(/\.$/, "")}. The citation was inserted locally only.`
+    );
+    const data = buildManualItemData(input) as any;
+    manualZoteroItem = {
+      key: `MANUAL_${Date.now()}`,
+      data: { ...data, DOI: data.DOI || "", publicationTitle: data.publicationTitle || "" },
+      links: { alternate: { href: url || "" } },
+    };
+  }
 
   const languageId = editor.document.languageId;
   const snippet = renderTemplate(languageId, manualZoteroItem, {
@@ -298,12 +297,44 @@ export async function insertManualCitationCommand() {
 
   if (snippet) {
     editor.insertSnippet(snippet);
+    if (savedToZotero) {
+      saveMetadataToZotero(manualZoteroItem.library?.id, manualZoteroItem.key, {
+        codeId,
+        functionName,
+      });
+    }
     vscode.window.showInformationMessage(
-      `Sci2Code: Inserted manual citation for "${title}".`
+      savedToZotero
+        ? `Sci2Code: Saved "${title}" to Zotero and inserted the citation.`
+        : `Sci2Code: Inserted manual citation for "${title}".`
     );
   } else {
     vscode.window.showErrorMessage(
       `Sci2Code: Couldn't add citation: This file type isn't supported.`
     );
   }
+}
+
+export async function createManualItemInZotero(input: ManualCitationInput): Promise<any> {
+  const userId = contextService.getContext(ZOTERO_CONTEXT.USERID);
+  const session = await vscode.authentication.getSession(
+    ZoteroAuthenticationProvider.id,
+    [],
+    { createIfNone: false }
+  );
+  if (!userId || !session) {
+    throw new Error("you are not logged in to Zotero.");
+  }
+
+  const created = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Window,
+      title: "Sci2Code: Saving reference to Zotero",
+    },
+    () => createZoteroItem(String(userId), session.accessToken, buildManualItemData(input))
+  );
+
+  const current: any[] = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS) || [];
+  contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, [created, ...current]);
+  return created;
 }
