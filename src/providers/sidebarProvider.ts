@@ -16,7 +16,6 @@ interface ZoteroCollectionNode {
   data: { name: string; parentCollection: string | false };
 }
 
-/** Sci2Code stores code metadata as JSON-valued tags; keep them out of the tag filter. */
 function isUserTag(tag: string): boolean {
   return !tag.trim().startsWith("{");
 }
@@ -144,7 +143,6 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
     );
   }
 
-  /** A collection's key plus the keys of all its nested subcollections. */
   private collectionAndDescendants(key: string): Set<string> {
     const all = this.getCollections();
     const keys = new Set<string>([key]);

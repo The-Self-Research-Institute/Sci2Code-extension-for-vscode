@@ -1,8 +1,8 @@
-import { authentication, window, commands } from "vscode";
+import { authentication, window, commands, ProgressLocation } from "vscode";
 import { ZoteroAuthenticationProvider } from "../providers/authProvider";
 import {
   getUserDetails,
-  getZoteroCollections,
+  getAllZoteroItems,
   getZoteroCollectionList,
 } from "../zotero/api";
 import { ZOTERO_CONTEXT } from "../system/constants";
@@ -45,33 +45,39 @@ export const generateSession = async (
 
       contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
 
-      const zoteroCollections = await getZoteroCollections(
-        zoteroUserDetailsRes.userID,
-        session.accessToken
+      const userId = zoteroUserDetailsRes.userID;
+      const library = await window.withProgress(
+        {
+          location: ProgressLocation.Window,
+          title: "Sci2Code: Loading Zotero library",
+        },
+        (progress) =>
+          getAllZoteroItems(userId, session.accessToken, {
+            onProgress: (loaded, total) =>
+              progress.report({
+                message: total ? `${loaded}/${total}` : `${loaded}`,
+              }),
+          })
+      );
+      console.log(
+        '[Sci2Code] Library fetched, item count:',
+        library.items.length,
+        'of',
+        library.total ?? 'unknown'
       );
 
-      if (!zoteroCollections.ok) {
-        console.error('[Sci2Code] Failed to fetch collections:', zoteroCollections.statusText);
-        throw new Error(`Failed to fetch Zotero items: ${zoteroCollections.statusText}`);
+      contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, library.items);
+
+      if (!library.complete) {
+        window.showWarningMessage(
+          `Sci2Code: Your Zotero library was only partly loaded. ${library.error ?? ""} Use "Refresh Library" to try again.`
+        );
       }
 
-      const zoteroCollectionsRes = await zoteroCollections.json();
-      const itemCount = Array.isArray(zoteroCollectionsRes) ? zoteroCollectionsRes.length : 'unknown';
-      console.log('[Sci2Code] Collections fetched, item count:', itemCount);
-
-      contextService.setContext(
-        ZOTERO_CONTEXT.ZOTERO_ITEMS,
-        zoteroCollectionsRes
-      );
-
-      // Collection names power the sidebar filter; it is optional, so a failure here is not fatal.
       try {
         contextService.setContext(
           ZOTERO_CONTEXT.ZOTERO_COLLECTIONS,
-          await getZoteroCollectionList(
-            zoteroUserDetailsRes.userID,
-            session.accessToken
-          )
+          (await getZoteroCollectionList(userId, session.accessToken)).items
         );
       } catch (e) {
         console.error('[Sci2Code] Failed to fetch collection list:', e);

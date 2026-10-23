@@ -10,6 +10,9 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 - **Citation hover**: Hover over a Zotero key in a citation comment (JS/TS, Python, R, Julia, including notebook cells) to see the item's title, authors, year, publication and DOI, with "Open" and "Copy key" actions.
 - **Sidebar filter by collection or tag**: A new filter button in the Zotero Documents view lets you narrow the library to a Zotero collection (subcollections included) or a tag. It combines with search, and "Clear Search" resets everything.
 
+### Fixed
+- **Libraries with more than 25 items now load completely.** The library was fetched in a single request, which Zotero caps at 25 items, so larger libraries were silently truncated in the sidebar, completions, hover and bibliography. Items are now loaded in pages of 100 with a progress indicator, skipping child notes and attachments. Rate limits and transient network errors are retried, a library that changes mid-load is reloaded, and a partial load shows a warning instead of failing silently.
+
 ### Changed
 - **License**: Relicensed from AGPL-3.0-or-later to the MIT License.
 
