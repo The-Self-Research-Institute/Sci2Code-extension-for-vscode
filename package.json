@@ -21,8 +21,8 @@
     "theme": "dark"
   },
   "description": "Sci2Code integrates Zotero with VS Code, letting you insert and manage references as JSDoc and PyDoc comments directly from your Zotero library, and more",
-  "license": "AGPL-3.0-or-later",
-  "version": "1.0.10",
+  "license": "MIT",
+  "version": "1.0.11",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -251,33 +251,6 @@
         "command": "zotero.refresh",
         "title": "Refresh Library",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "zotero.search",
-        "title": "Search Library",
-        "icon": "$(search)"
-      },
-      {
-        "command": "zotero.clearFilter",
-        "title": "Clear Search",
-        "icon": "$(clear-all)"
-      },
-      {
-        "command": "zotero.sort",
-        "title": "Sort Zotero Documents",
-        "icon": "$(sort-precedence)"
-      },
-      {
-        "command": "zotero.copyDOI",
-        "title": "Copy DOI"
-      },
-      {
-        "command": "zotero.copyKey",
-        "title": "Copy Zotero Key"
-      },
-      {
-        "command": "zotero.openOnWeb",
-        "title": "Open on zotero.org"
       }
     ],
     "menus": {
@@ -285,57 +258,6 @@
         {
           "command": "sci2code.insertCitationFromSidebar",
           "when": "false"
-        },
-        {
-          "command": "zotero.copyDOI",
-          "when": "false"
-        },
-        {
-          "command": "zotero.copyKey",
-          "when": "false"
-        },
-        {
-          "command": "zotero.openOnWeb",
-          "when": "false"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "zotero.search",
-          "when": "view == zotero-documents",
-          "group": "navigation@1"
-        },
-        {
-          "command": "zotero.clearFilter",
-          "when": "view == zotero-documents && zotero:hasFilter",
-          "group": "navigation@2"
-        },
-        {
-          "command": "zotero.sort",
-          "when": "view == zotero-documents",
-          "group": "navigation@3"
-        },
-        {
-          "command": "zotero.refresh",
-          "when": "view == zotero-documents",
-          "group": "navigation@4"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "zotero.copyDOI",
-          "when": "view == zotero-documents && viewItem == zoteroItem",
-          "group": "1_copy@1"
-        },
-        {
-          "command": "zotero.copyKey",
-          "when": "view == zotero-documents && viewItem == zoteroItem",
-          "group": "1_copy@2"
-        },
-        {
-          "command": "zotero.openOnWeb",
-          "when": "view == zotero-documents && viewItem == zoteroItem",
-          "group": "2_open@1"
         }
       ]
     },
@@ -348,33 +270,6 @@
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "zotero-account",
-        "contents": "Login to access Zotero",
-        "when": "!zotero:loggedIn"
-      },
-      {
-        "view": "zotero-account",
-        "contents": "[Login to Zotero](command:sci2code.login)",
-        "when": "!zotero:loggedIn"
-      },
-      {
-        "view": "zotero-account",
-        "contents": "You will need zotero API Key to connect your zotero account. You can get the Zotero API key from [here](https://www.zotero.org/settings/keys).",
-        "when": "!zotero:loggedIn"
-      },
-      {
-        "view": "zotero-account",
-        "contents": "Thanks for connecting with Zotero",
-        "when": "zotero:loggedIn"
-      },
-      {
-        "view": "zotero-documents",
-        "contents": "Authenticate to view your Zotero Documents",
-        "when": "!zotero:loggedIn"
-      }
-    ],
     "keybindings": [
       {
         "command": "sci2code.insertZoteroCitation",
@@ -386,12 +281,9 @@
     "views": {
       "zotero-explorer": [
         {
-          "id": "zotero-account",
-          "name": "Zotero Account"
-        },
-        {
-          "id": "zotero-documents",
-          "name": "Zotero Documents"
+          "type": "webview",
+          "id": "sci2code.panel",
+          "name": "Sci2Code"
         }
       ]
     }

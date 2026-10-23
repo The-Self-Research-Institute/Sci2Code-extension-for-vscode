@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { SidebarProvider } from "./providers/sidebarProvider";
+import { PanelProvider, PANEL_VIEW_ID } from "./panel/panelProvider";
 import { ZoteroAuthenticationProvider } from "./providers/authProvider";
 import { generateSession } from "./auth/auth";
 import {
@@ -12,10 +12,15 @@ import {
   triggerPatternManager,
 } from "./features/docCompletion";
 import { generateBibliographyCommand } from "./features/bibliographyService";
+import { registerCitationHover } from "./features/citationHover";
 import { contextService } from "./services/contextService";
+import { libraryCache } from "./services/libraryCache";
 import { ZOTERO_CONTEXT } from "./system/constants";
 import { Sci2CodeAPI, CitationItem } from "./api/types";
 import { getZoteroItemTitle } from "./utils/zotero.utils";
+
+const BACKGROUND_SYNC_MS = 5 * 60 * 1000;
+const FOCUS_SYNC_MIN_MS = 60 * 1000;
 
 let zoteroStatusItem: vscode.StatusBarItem;
 let completionProviders: vscode.Disposable[] = [];
@@ -23,36 +28,58 @@ let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Extension "Sci2Code" is now active!');
-
   // Create output channel for debugging
   outputChannel = vscode.window.createOutputChannel("Sci2Code");
   context.subscriptions.push(outputChannel);
   outputChannel.appendLine('Sci2Code extension activated');
 
-  const sidebarProvider = new SidebarProvider();
-  const zoteroTreeView = vscode.window.createTreeView("zotero-documents", {
-    treeDataProvider: sidebarProvider,
-    showCollapseAll: true,
-  });
-  sidebarProvider.treeView = zoteroTreeView;
-  context.subscriptions.push(zoteroTreeView);
+  const panelProvider = new PanelProvider(context);
+  let refreshTimer: NodeJS.Timeout | undefined;
+  context.subscriptions.push(
+    panelProvider,
+    vscode.window.registerWebviewViewProvider(PANEL_VIEW_ID, panelProvider),
+    contextService.onDidChange(() => {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => panelProvider.refresh(), 50);
+    })
+  );
 
   vscode.authentication.onDidChangeSessions((e) => {
     if (e.provider.id === ZoteroAuthenticationProvider.id) {
-      sidebarProvider.refresh();
+      panelProvider.refresh();
     }
   });
 
+  libraryCache.init(context);
+
   const activateSession = async (
     createIfNone: boolean,
-    forceNewSession: boolean = false
+    forceNewSession: boolean = false,
+    background: boolean = false
   ) => {
-    await generateSession(createIfNone, forceNewSession);
-    sidebarProvider.refresh();
+    const result = await generateSession(createIfNone, forceNewSession, background);
+    panelProvider.refresh();
+    return result;
   };
+  restoreCachedLibrary(context).then(() => activateSession(false));
 
-  activateSession(false);
-
+  let lastBackgroundCheck = Date.now();
+  const backgroundCheck = () => {
+    if (contextService.getContext(ZOTERO_CONTEXT.LOGGEDIN) !== true) {
+      return;
+    }
+    lastBackgroundCheck = Date.now();
+    activateSession(false, false, true);
+  };
+  const backgroundTimer = setInterval(backgroundCheck, BACKGROUND_SYNC_MS);
+  context.subscriptions.push(
+    { dispose: () => clearInterval(backgroundTimer) },
+    vscode.window.onDidChangeWindowState((state) => {
+      if (state.focused && Date.now() - lastBackgroundCheck > FOCUS_SYNC_MIN_MS) {
+        backgroundCheck();
+      }
+    })
+  );
   zoteroStatusItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100
@@ -77,6 +104,8 @@ export function activate(context: vscode.ExtensionContext) {
           // Clear old context and trigger re-authentication with the new key
           contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
           contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
+          contextService.setContext(ZOTERO_CONTEXT.CACHED, false);
+          await libraryCache.clear();
           
           // Re-authenticate with new key
           await activateSession(false);
@@ -84,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
           // If API key is cleared, logout
           contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, false);
           contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, []);
-          sidebarProvider.refresh();
+          panelProvider.refresh();
         }
       }
 
@@ -101,8 +130,9 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  registerStaticCommands(context, sidebarProvider, activateSession);
+  registerStaticCommands(context, panelProvider, activateSession);
   registerCompletionProviders(context);
+  context.subscriptions.push(registerCitationHover());
 
   // Export Public API for other extensions (e.g., OntoCode)
   const api: Sci2CodeAPI = {
@@ -285,11 +315,12 @@ function formatDate(date: string): string {
 
 function registerStaticCommands(
   context: vscode.ExtensionContext,
-  sidebarProvider: SidebarProvider,
+  panelProvider: PanelProvider,
   activateSession: (
     createIfNone: boolean,
-    forceNewSession?: boolean
-  ) => Promise<void>
+    forceNewSession?: boolean,
+    background?: boolean
+  ) => Promise<{ isSessionGenerated: boolean }>
 ) {
   context.subscriptions.push(
     vscode.authentication.registerAuthenticationProvider(
@@ -349,7 +380,18 @@ function registerStaticCommands(
             context.secrets
           );
           await authProvider.removeSession(session.id);
-          sidebarProvider.refresh();
+          const config = vscode.workspace.getConfiguration("sci2code");
+          for (const target of [
+            vscode.ConfigurationTarget.Global,
+            vscode.ConfigurationTarget.Workspace,
+          ]) {
+            try {
+              await config.update("apiKey", undefined, target);
+            } catch {
+              continue;
+            }
+          }
+          panelProvider.refresh();
           vscode.window.showInformationMessage(
             "Successfully logged out of Zotero."
           );
@@ -379,49 +421,35 @@ function registerStaticCommands(
       "sci2code.generateBibliography",
       generateBibliographyCommand
     ),
-    vscode.commands.registerCommand("zotero.search", () =>
-      sidebarProvider.search()
-    ),
-    vscode.commands.registerCommand("zotero.clearFilter", () =>
-      sidebarProvider.clearFilter()
-    ),
-    vscode.commands.registerCommand("zotero.sort", () =>
-      sidebarProvider.chooseSort()
-    ),
-    vscode.commands.registerCommand("zotero.copyDOI", async (node: any) => {
-      const doi = node?.zoteroItem?.data?.DOI;
-      if (!doi) {
-        vscode.window.showWarningMessage("This item has no DOI.");
-        return;
-      }
-      await vscode.env.clipboard.writeText(doi);
-      vscode.window.showInformationMessage(`Copied DOI: ${doi}`);
-    }),
-    vscode.commands.registerCommand("zotero.copyKey", async (node: any) => {
-      const key = node?.zoteroItem?.key;
-      if (!key) return;
-      await vscode.env.clipboard.writeText(key);
-      vscode.window.showInformationMessage(`Copied Zotero key: ${key}`);
-    }),
-    vscode.commands.registerCommand("zotero.openOnWeb", async (node: any) => {
-      const url =
-        node?.zoteroItem?.links?.alternate?.href ||
-        (node?.zoteroItem?.key && node?.zoteroItem?.library?.id
-          ? `https://www.zotero.org/users/${node.zoteroItem.library.id}/items/${node.zoteroItem.key}`
-          : undefined);
-      if (!url) {
-        vscode.window.showWarningMessage("No URL available for this item.");
-        return;
-      }
-      await vscode.env.openExternal(vscode.Uri.parse(url));
-    }),
     vscode.commands.registerCommand("zotero.refresh", async () => {
       // Re-authenticate to fetch fresh data from Zotero
-      await activateSession(false);
-      sidebarProvider.refresh();
-      vscode.window.showInformationMessage("Zotero library refreshed.");
+      const result = await activateSession(false);
+      if (result.isSessionGenerated) {
+        vscode.window.showInformationMessage("Zotero library refreshed.");
+      }
     })
   );
+}
+
+async function restoreCachedLibrary(context: vscode.ExtensionContext) {
+  const hasCredentials =
+    !!(await context.secrets.get(ZoteroAuthenticationProvider.secretKey)) ||
+    !!vscode.workspace.getConfiguration("sci2code").get<string>("apiKey")?.trim();
+  if (!hasCredentials) {
+    return;
+  }
+  const snapshot = await libraryCache.load();
+  if (!snapshot || snapshot.items.length === 0) {
+    return;
+  }
+  contextService.setContext(ZOTERO_CONTEXT.USERNAME, snapshot.username);
+  contextService.setContext(ZOTERO_CONTEXT.USERID, snapshot.userId);
+  contextService.setContext(ZOTERO_CONTEXT.ZOTERO_COLLECTIONS, snapshot.collections);
+  contextService.setContext(ZOTERO_CONTEXT.LAST_SYNCED, snapshot.syncedAt);
+  contextService.setContext(ZOTERO_CONTEXT.LIBRARY_VERSION, snapshot.libraryVersion);
+  contextService.setContext(ZOTERO_CONTEXT.ZOTERO_ITEMS, snapshot.items);
+  contextService.setContext(ZOTERO_CONTEXT.CACHED, true);
+  contextService.setContext(ZOTERO_CONTEXT.LOGGEDIN, true);
 }
 
 function registerCompletionProviders(context: vscode.ExtensionContext) {

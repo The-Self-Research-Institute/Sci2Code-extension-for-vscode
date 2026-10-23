@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { getZoteroItemTitle } from "../utils/zotero.utils";
+import { findUnresolvedCitations } from "../panel/libraryModel";
 
 const SUPPORTED_EXTENSIONS_GLOB = "**/*.{js,jsx,ts,tsx,py,r,jl}";
 const EXCLUDE_GLOB = "**/{node_modules,out,dist,.git}/**";
@@ -244,7 +245,12 @@ async function readWorkspaceText(): Promise<string> {
   return contents.join("\n");
 }
 
-export async function generateBibliographyCommand(): Promise<void> {
+export interface BibliographyOptions {
+  scope?: "file" | "workspace";
+  output?: "cursor" | "file" | "clipboard";
+}
+
+export async function generateBibliographyCommand(options: BibliographyOptions = {}): Promise<void> {
   const zoteroItems: any[] = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS) || [];
   if (zoteroItems.length === 0) {
     vscode.window.showWarningMessage(
@@ -264,7 +270,15 @@ export async function generateBibliographyCommand(): Promise<void> {
   }
 
   let scope: "file" | "workspace" = "workspace";
-  if (editor && hasWorkspace) {
+  const presetScope =
+    options.scope === "file" && editor
+      ? "file"
+      : options.scope === "workspace" && hasWorkspace
+        ? "workspace"
+        : undefined;
+  if (presetScope) {
+    scope = presetScope;
+  } else if (editor && hasWorkspace) {
     const scopePick = await vscode.window.showQuickPick(
       [
         { label: "Current File", value: "file" as const },
@@ -297,6 +311,12 @@ export async function generateBibliographyCommand(): Promise<void> {
 
   const knownKeys = new Set<string>(zoteroItems.map((item) => item.key));
   const citedKeys = extractCitedKeys(text, knownKeys);
+  const unresolved = findUnresolvedCitations(text, knownKeys);
+  if (unresolved.length > 0) {
+    vscode.window.showWarningMessage(
+      `Sci2Code: ${unresolved.length} citation${unresolved.length === 1 ? " is" : "s are"} not in your Zotero library and ${unresolved.length === 1 ? "was" : "were"} left out: ${unresolved.map((u) => u.title).join(", ")}. Open "Cited in file" in the Sci2Code sidebar to add ${unresolved.length === 1 ? "it" : "them"} to Zotero.`
+    );
+  }
 
   if (citedKeys.length === 0) {
     vscode.window.showInformationMessage(
@@ -310,16 +330,28 @@ export async function generateBibliographyCommand(): Promise<void> {
 
   const bibliography = formatBibliography(citedItems, style);
 
-  const outputOptions: { label: string; value: "file" | "cursor" }[] = [
+  const outputOptions: { label: string; value: "file" | "cursor" | "clipboard" }[] = [
     { label: "Write to File", value: "file" },
+    { label: "Copy to Clipboard", value: "clipboard" },
   ];
   if (editor) {
     outputOptions.unshift({ label: "Insert at Cursor", value: "cursor" as const });
   }
-  const outputPick = await vscode.window.showQuickPick(outputOptions, {
-    placeHolder: "Where should the bibliography go?",
-  });
+  const presetOutput = outputOptions.find((o) => o.value === options.output);
+  const outputPick =
+    presetOutput ||
+    (await vscode.window.showQuickPick(outputOptions, {
+      placeHolder: "Where should the bibliography go?",
+    }));
   if (!outputPick) {return;}
+
+  if (outputPick.value === "clipboard") {
+    await vscode.env.clipboard.writeText(bibliography);
+    vscode.window.showInformationMessage(
+      `Sci2Code: Copied a ${style} bibliography with ${citedItems.length} entr${citedItems.length === 1 ? "y" : "ies"} to the clipboard.`
+    );
+    return;
+  }
 
   if (outputPick.value === "cursor" && editor) {
     const prefix = COMMENT_PREFIX[editor.document.languageId] || "#";

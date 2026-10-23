@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/version-short/SelfResearchInstitute.sci2code.svg?label=VS%20Code%20Marketplace&color=blue" alt="Marketplace Version"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/installs-short/SelfResearchInstitute.sci2code.svg?label=installs&color=brightgreen" alt="Installs"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=SelfResearchInstitute.sci2code"><img src="https://vsmarketplacebadges.dev/downloads-short/SelfResearchInstitute.sci2code.svg?label=downloads&color=green" alt="Downloads"></a>
@@ -43,6 +43,8 @@
 - **Browse and search** your Zotero library from within VS Code.
 - **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
 - **Generate a Bibliography**: Collect every citation you've inserted across a file or the whole workspace into a formatted reference list — APA, MLA, Numbered, or BibTeX.
+- **Hover to preview citations**: Hover over a citation key in your code to see the title, authors, and DOI, and open it in Zotero.
+- **One-click sidebar**: Search, filter by collection or tag, switch to "Cited in file", and click a reference to insert its citation.
 
 ## 🖼 Screenshots
 
@@ -206,7 +208,7 @@ This project follows a [Code of Conduct](CODE_OF_CONDUCT.md) and [Governance Mod
 
 ## 📄 License
 
-This project is licensed under the [GNU AGPL-3.0 License](LICENSE.md).
+This project is licensed under the [MIT License](LICENSE.md).
 
 ## 📬 Contact
 
