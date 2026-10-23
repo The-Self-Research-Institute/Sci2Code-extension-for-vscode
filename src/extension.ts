@@ -12,6 +12,7 @@ import {
   triggerPatternManager,
 } from "./features/docCompletion";
 import { generateBibliographyCommand } from "./features/bibliographyService";
+import { registerCitationHover } from "./features/citationHover";
 import { contextService } from "./services/contextService";
 import { ZOTERO_CONTEXT } from "./system/constants";
 import { Sci2CodeAPI, CitationItem } from "./api/types";
@@ -103,6 +104,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   registerStaticCommands(context, sidebarProvider, activateSession);
   registerCompletionProviders(context);
+  context.subscriptions.push(registerCitationHover());
 
   // Export Public API for other extensions (e.g., OntoCode)
   const api: Sci2CodeAPI = {
@@ -385,7 +387,10 @@ function registerStaticCommands(
     vscode.commands.registerCommand("zotero.clearFilter", () =>
       sidebarProvider.clearFilter()
     ),
-    vscode.commands.registerCommand("zotero.sort", () =>
+    vscode.commands.registerCommand("zotero.filterBy", () =>
+      sidebarProvider.filterBy()
+    ),
+    vscode.commands.registerCommand("zotero.sort",() =>
       sidebarProvider.chooseSort()
     ),
     vscode.commands.registerCommand("zotero.copyDOI", async (node: any) => {

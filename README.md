@@ -43,6 +43,8 @@
 - **Browse and search** your Zotero library from within VS Code.
 - **Context-Aware Suggestions**: Type comment triggers like `"""` or `/**` to get instant citation suggestions.
 - **Generate a Bibliography**: Collect every citation you've inserted across a file or the whole workspace into a formatted reference list — APA, MLA, Numbered, or BibTeX.
+- **Hover to preview citations**: Hover over a citation key in your code to see the title, authors, and DOI, and open it in Zotero.
+- **Filter by collection or tag**: Narrow the sidebar to a Zotero collection or tag.
 
 ## 🖼 Screenshots
 

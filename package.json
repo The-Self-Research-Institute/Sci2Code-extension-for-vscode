@@ -263,6 +263,11 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "zotero.filterBy",
+        "title": "Filter by Collection or Tag",
+        "icon": "$(filter)"
+      },
+      {
         "command": "zotero.sort",
         "title": "Sort Zotero Documents",
         "icon": "$(sort-precedence)"
@@ -311,14 +316,19 @@
           "group": "navigation@2"
         },
         {
-          "command": "zotero.sort",
+          "command": "zotero.filterBy",
           "when": "view == zotero-documents",
           "group": "navigation@3"
         },
         {
-          "command": "zotero.refresh",
+          "command": "zotero.sort",
           "when": "view == zotero-documents",
           "group": "navigation@4"
+        },
+        {
+          "command": "zotero.refresh",
+          "when": "view == zotero-documents",
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [

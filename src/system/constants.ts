@@ -6,6 +6,7 @@ export const ZOTERO_CONTEXT = {
   USERNAME: "username",
   USERID: "userId",
   ZOTERO_ITEMS: "zoteroItems",
+  ZOTERO_COLLECTIONS: "zoteroCollections",
   AUTHENTICATING: "authenticating",
   CODE_ENABLED: "codeEnabled",
   CODE_LOCAL_ENGINE_ENABLED: "codeLocalEngineEnabled",

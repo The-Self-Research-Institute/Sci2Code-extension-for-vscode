@@ -11,6 +11,16 @@ import {
 type ZoteroItem = any;
 type SortMode = "type" | "title" | "date" | "author";
 
+interface ZoteroCollectionNode {
+  key: string;
+  data: { name: string; parentCollection: string | false };
+}
+
+/** Sci2Code stores code metadata as JSON-valued tags; keep them out of the tag filter. */
+function isUserTag(tag: string): boolean {
+  return !tag.trim().startsWith("{");
+}
+
 const ITEM_TYPE_LABELS: Record<string, string> = {
   journalArticle: "Journal Articles",
   book: "Books",
@@ -111,6 +121,8 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 
   private searchTerm: string = "";
   private sortMode: SortMode = "type";
+  private collectionFilter?: { key: string; name: string };
+  private tagFilter?: string;
   public treeView?: vscode.TreeView<SidebarItem>;
 
   getTreeItem(element: SidebarItem): vscode.TreeItem {
@@ -122,6 +134,53 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       return Promise.resolve(element.children || []);
     }
     return Promise.resolve(this.buildTree());
+  }
+
+  private getCollections(): ZoteroCollectionNode[] {
+    return (
+      (contextService.getContext(
+        ZOTERO_CONTEXT.ZOTERO_COLLECTIONS
+      ) as ZoteroCollectionNode[]) || []
+    );
+  }
+
+  /** A collection's key plus the keys of all its nested subcollections. */
+  private collectionAndDescendants(key: string): Set<string> {
+    const all = this.getCollections();
+    const keys = new Set<string>([key]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const c of all) {
+        const parent = c.data.parentCollection;
+        if (parent && keys.has(parent) && !keys.has(c.key)) {
+          keys.add(c.key);
+          grew = true;
+        }
+      }
+    }
+    return keys;
+  }
+
+  private matchesFilters(item: ZoteroItem): boolean {
+    if (this.collectionFilter) {
+      const wanted = this.collectionAndDescendants(this.collectionFilter.key);
+      const inCollections: string[] = item.data?.collections || [];
+      if (!inCollections.some((k) => wanted.has(k))) return false;
+    }
+    if (this.tagFilter) {
+      const tags: Array<{ tag: string }> = item.data?.tags || [];
+      if (!tags.some((t) => t.tag === this.tagFilter)) return false;
+    }
+    return true;
+  }
+
+  private hasActiveFilter(): boolean {
+    return (
+      this.searchTerm !== "" ||
+      this.collectionFilter !== undefined ||
+      this.tagFilter !== undefined
+    );
   }
 
   private matchesSearch(item: ZoteroItem, term: string): boolean {
@@ -182,7 +241,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       (contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS) as ZoteroItem[]) ||
       [];
 
-    if (zoteroItems.length === 0 && !this.searchTerm) {
+    if (zoteroItems.length === 0 && !this.hasActiveFilter()) {
       const infoItem = new SidebarItem(
         "No Zotero items. Please log in or refresh.",
         vscode.TreeItemCollapsibleState.None
@@ -191,15 +250,15 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       return [infoItem];
     }
 
-    const filteredItems = zoteroItems.filter((i) =>
-      this.matchesSearch(i, this.searchTerm)
+    const filteredItems = zoteroItems.filter(
+      (i) => this.matchesFilters(i) && this.matchesSearch(i, this.searchTerm)
     );
 
     this.updateViewDescription(filteredItems.length, zoteroItems.length);
 
-    if (filteredItems.length === 0 && this.searchTerm) {
+    if (filteredItems.length === 0 && this.hasActiveFilter()) {
       const infoItem = new SidebarItem(
-        `No results for "${this.searchTerm}"`,
+        "No items match the current filters",
         vscode.TreeItemCollapsibleState.None
       );
       infoItem.iconPath = new vscode.ThemeIcon("search-stop");
@@ -226,7 +285,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
       const items = grouped.get(itemType)!;
       const children = this.sortItems(items).map((i) => this.leafItem(i));
       const label = `${humanizeItemType(itemType)} (${items.length})`;
-      const shouldExpand = this.searchTerm !== "" || items.length <= 20;
+      const shouldExpand = this.hasActiveFilter() || items.length <= 20;
       const node = new SidebarItem(
         label,
         shouldExpand
@@ -267,8 +326,12 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 
   private updateViewDescription(shown: number, total: number): void {
     if (!this.treeView) return;
-    if (this.searchTerm) {
-      this.treeView.description = `filter: "${this.searchTerm}" \u00b7 ${shown}/${total}`;
+    const active: string[] = [];
+    if (this.collectionFilter) active.push(`collection: ${this.collectionFilter.name}`);
+    if (this.tagFilter) active.push(`tag: ${this.tagFilter}`);
+    if (this.searchTerm) active.push(`"${this.searchTerm}"`);
+    if (active.length > 0) {
+      this.treeView.description = `${active.join(", ")} \u00b7 ${shown}/${total}`;
     } else if (this.sortMode !== "type") {
       this.treeView.description = `sorted by ${this.sortMode} \u00b7 ${total}`;
     } else {
@@ -289,18 +352,102 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 
     if (result !== undefined) {
       this.searchTerm = result;
-      vscode.commands.executeCommand(
-        "setContext",
-        "zotero:hasFilter",
-        this.searchTerm !== ""
-      );
+      this.syncFilterContext();
       this.refresh();
     }
   }
 
   public clearFilter(): void {
     this.searchTerm = "";
-    vscode.commands.executeCommand("setContext", "zotero:hasFilter", false);
+    this.collectionFilter = undefined;
+    this.tagFilter = undefined;
+    this.syncFilterContext();
+    this.refresh();
+  }
+
+  private syncFilterContext(): void {
+    vscode.commands.executeCommand(
+      "setContext",
+      "zotero:hasFilter",
+      this.hasActiveFilter()
+    );
+  }
+
+  public async filterBy(): Promise<void> {
+    const picked = await vscode.window.showQuickPick(
+      [
+        { label: "$(folder) Collection", value: "collection" as const },
+        { label: "$(tag) Tag", value: "tag" as const },
+      ],
+      { placeHolder: "Filter Zotero documents by..." }
+    );
+    if (!picked) return;
+    if (picked.value === "collection") {
+      await this.chooseCollection();
+    } else {
+      await this.chooseTag();
+    }
+  }
+
+  private async chooseCollection(): Promise<void> {
+    const collections = this.getCollections();
+    if (collections.length === 0) {
+      vscode.window.showInformationMessage(
+        "Sci2Code: No Zotero collections found. Try refreshing the library."
+      );
+      return;
+    }
+    const byKey = new Map(collections.map((c) => [c.key, c]));
+    const pathOf = (c: ZoteroCollectionNode): string => {
+      const names = [c.data.name];
+      const seen = new Set<string>([c.key]);
+      let parent = c.data.parentCollection;
+      while (parent && byKey.has(parent) && !seen.has(parent)) {
+        seen.add(parent);
+        names.unshift(byKey.get(parent)!.data.name);
+        parent = byKey.get(parent)!.data.parentCollection;
+      }
+      return names.join(" / ");
+    };
+    const picks = collections
+      .map((c) => ({ label: pathOf(c), key: c.key, name: c.data.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const picked = await vscode.window.showQuickPick(picks, {
+      placeHolder: "Show items in collection (includes subcollections)",
+    });
+    if (!picked) return;
+    this.collectionFilter = { key: picked.key, name: picked.name };
+    this.syncFilterContext();
+    this.refresh();
+  }
+
+  private async chooseTag(): Promise<void> {
+    const items =
+      (contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS) as ZoteroItem[]) ||
+      [];
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      for (const t of item.data?.tags || []) {
+        if (t?.tag && isUserTag(t.tag)) {
+          counts.set(t.tag, (counts.get(t.tag) || 0) + 1);
+        }
+      }
+    }
+    if (counts.size === 0) {
+      vscode.window.showInformationMessage(
+        "Sci2Code: No tags found in your Zotero library."
+      );
+      return;
+    }
+    const picks = Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([tag, n]) => ({ label: tag, description: `${n}` }));
+    const picked = await vscode.window.showQuickPick(picks, {
+      placeHolder: "Show items with tag",
+    });
+    if (!picked) return;
+    this.tagFilter = picked.label;
+    this.syncFilterContext();
     this.refresh();
   }
 

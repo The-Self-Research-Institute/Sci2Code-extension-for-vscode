@@ -68,3 +68,30 @@ export const updateZoteroTags = async (
     }),
   });
 };
+
+export interface ZoteroCollection {
+  key: string;
+  data: { key: string; name: string; parentCollection: string | false };
+}
+
+export const getZoteroCollectionList = async (
+  userId: string,
+  apiKey: string
+): Promise<ZoteroCollection[]> => {
+  const pageSize = 100;
+  const collections: ZoteroCollection[] = [];
+  for (let start = 0; ; start += pageSize) {
+    const response = await fetch(
+      `${ZOTERO_BASE_URI}/users/${userId}/collections?limit=${pageSize}&start=${start}`,
+      { headers: { Authorization: `Bearer ${apiKey}` } }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch collections: ${response.statusText}`);
+    }
+    const page = (await response.json()) as ZoteroCollection[];
+    collections.push(...page);
+    if (page.length < pageSize) {
+      return collections;
+    }
+  }
+};

@@ -6,6 +6,10 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [1.0.11] - 2026-10-23
 
+### Added
+- **Citation hover**: Hover over a Zotero key in a citation comment (JS/TS, Python, R, Julia, including notebook cells) to see the item's title, authors, year, publication and DOI, with "Open" and "Copy key" actions.
+- **Sidebar filter by collection or tag**: A new filter button in the Zotero Documents view lets you narrow the library to a Zotero collection (subcollections included) or a tag. It combines with search, and "Clear Search" resets everything.
+
 ### Changed
 - **License**: Relicensed from AGPL-3.0-or-later to the MIT License.
 

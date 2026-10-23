@@ -1,6 +1,10 @@
 import { authentication, window, commands } from "vscode";
 import { ZoteroAuthenticationProvider } from "../providers/authProvider";
-import { getUserDetails, getZoteroCollections } from "../zotero/api";
+import {
+  getUserDetails,
+  getZoteroCollections,
+  getZoteroCollectionList,
+} from "../zotero/api";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { contextService } from "../services/contextService";
 import { SidebarProvider } from "../providers/sidebarProvider";
@@ -59,6 +63,20 @@ export const generateSession = async (
         ZOTERO_CONTEXT.ZOTERO_ITEMS,
         zoteroCollectionsRes
       );
+
+      // Collection names power the sidebar filter; it is optional, so a failure here is not fatal.
+      try {
+        contextService.setContext(
+          ZOTERO_CONTEXT.ZOTERO_COLLECTIONS,
+          await getZoteroCollectionList(
+            zoteroUserDetailsRes.userID,
+            session.accessToken
+          )
+        );
+      } catch (e) {
+        console.error('[Sci2Code] Failed to fetch collection list:', e);
+        contextService.setContext(ZOTERO_CONTEXT.ZOTERO_COLLECTIONS, []);
+      }
 
       sidebarProvider.refresh();
 
