@@ -9,8 +9,8 @@ const ICON_REFRESH = icon(
 const ICON_SLIDERS = icon(
   '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>'
 );
-const ICON_LOGOUT = icon(
-  '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
+const ICON_GEAR = icon(
+  '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
 );
 const ICON_SEARCH = icon('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>');
 const ICON_PLUS = icon('<path d="M5 12h14"/><path d="M12 5v14"/>');
@@ -50,11 +50,17 @@ export function getPanelHtml(
 
 <aside class="extension hidden" id="main" aria-label="Sci2Code citation sidebar">
   <header class="head">
-    <span class="brand">SCI2CODE</span>
     <div class="tools">
       <button class="icon" id="manual" aria-label="Add manual citation" title="Add manual citation">${ICON_PLUS}</button>
       <button class="icon" id="settings" aria-label="Filter by collection or tag" title="Filter by collection or tag" aria-pressed="false">${ICON_SLIDERS}<span class="badge-dot hidden" id="filterDot"></span></button>
-      <button class="icon" id="logout" aria-label="Log out of Zotero" title="Log out of Zotero">${ICON_LOGOUT}</button>
+      <div class="conn-wrap">
+        <button class="icon" id="connection" aria-haspopup="menu" aria-expanded="false" aria-label="Zotero connection" title="Zotero connection">${ICON_GEAR}</button>
+        <div class="menu down hidden" id="connMenu" role="menu">
+          <button role="menuitem" id="menuSync">Sync library now</button>
+          <button role="menuitem" id="menuSettings">Sci2Code settings</button>
+          <button role="menuitem" id="logout">Log out of Zotero</button>
+        </div>
+      </div>
     </div>
   </header>
   <div class="connection">
@@ -80,6 +86,7 @@ export function getPanelHtml(
     <button role="tab" id="tabLibrary" data-tab="library" aria-selected="true">Library <span class="count" id="libCount">0</span></button>
     <button role="tab" id="tabCited" data-tab="cited" aria-selected="false">Cited in file <span class="count" id="citedCount">0</span></button>
   </div>
+  <div class="target-strip" id="targetStrip" aria-live="polite"><span id="targetLabel"></span> <strong id="targetFile"></strong></div>
   <div class="list-meta">
     <span id="refCount"></span>
     <select id="sort" aria-label="Sort references">
@@ -101,7 +108,7 @@ export function getPanelHtml(
     <h3 id="pvTitle"></h3>
     <p class="authors" id="pvAuthors"></p>
     <p class="identifier" id="pvId"></p>
-    <div class="links"><button id="addToZotero">Add to Zotero</button><button id="open">Open in Zotero</button><button id="copyKey">Copy key</button><button id="copyDoi">Copy DOI</button></div>
+    <div class="links"><button id="addToZotero">Add to Zotero</button><button id="open">Open in Zotero</button><button id="copyKey">Copy Zotero ID</button><button id="copyCiteKey">Copy @key</button><button id="copyDoi">Copy DOI</button></div>
     <details id="pvDetails"><summary>Preview citation</summary><pre id="pvCode"></pre></details>
   </section>
 

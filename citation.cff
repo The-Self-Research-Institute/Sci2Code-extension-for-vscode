@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Sci2Code"
-version: 1.0.11
-date-released: 2026-10-23
+version: 1.0.12
+date-released: 2026-11-18
 license: MIT
 
 authors:
@@ -12,7 +12,7 @@ authors:
 contact:
   - email: "support@selfresearch.org"
 
-abstract: "Sci2Code bridges the gap between your research library and your code. This extension allows seamless integration of Zotero, your trusted reference manager, directly into Visual Studio Code. Easily link academic articles, papers, and other resources from your Zotero library as inline citations. This extension works in JavaScript (.js), TypeScript (.ts), JavaScript XML (.jsx), TypeScript XML (.tsx), Python (.py), Julia (.jl), and R (.r) files."
+abstract: "Sci2Code bridges the gap between your research library and your code. This extension allows seamless integration of Zotero, your trusted reference manager, directly into Visual Studio Code. Easily link academic articles, papers, and other resources from your Zotero library as inline citations. This extension works in JavaScript (.js), TypeScript (.ts), JavaScript XML (.jsx), TypeScript XML (.tsx), Python (.py), Julia (.jl), R (.r), Quarto (.qmd), and Typst (.typ, .typst) files."
 keywords:
   - "Programming Languages"
   - "Snippets"
@@ -23,5 +23,7 @@ keywords:
   - "Python"
   - "Julia"
   - "R"
+  - "Quarto"
+  - "Typst"
 
-repository-code: "https://github.com/The-Self-Research-Institute/zotero_vscode_ext"
+repository-code: "https://github.com/The-Self-Research-Institute/Sci2Code-extension-for-vscode"

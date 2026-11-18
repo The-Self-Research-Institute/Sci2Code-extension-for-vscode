@@ -3,8 +3,18 @@ import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { getZoteroItemTitle } from "../utils/zotero.utils";
 import { findUnresolvedCitations } from "../panel/libraryModel";
+import {
+  Creator,
+  bibtexForItems,
+  creatorFullName,
+  getCreators,
+  getYear,
+} from "./bibtex";
+import { appendToBibFile, readEntriesOf, resolveBibTarget } from "./bibFile";
+import { itemsForProseKeys, proseCitationKeys } from "./proseSync";
+import { templateLanguageFor } from "./templateService";
 
-const SUPPORTED_EXTENSIONS_GLOB = "**/*.{js,jsx,ts,tsx,py,r,jl}";
+const SUPPORTED_EXTENSIONS_GLOB = "**/*.{js,jsx,ts,tsx,py,r,jl,qmd,typ,typst}";
 const EXCLUDE_GLOB = "**/{node_modules,out,dist,.git}/**";
 const ZOTERO_KEY_PATTERN = /\b[A-Z0-9]{8}\b/g;
 const COMMENT_PREFIX: Record<string, string> = {
@@ -15,23 +25,25 @@ const COMMENT_PREFIX: Record<string, string> = {
   python: "#",
   r: "#",
   julia: "#",
+  typst: "//",
 };
 
-type CitationStyle = "APA" | "MLA" | "Numbered" | "BibTeX";
+// Quarto is Markdown-based, so its only comment syntax is an HTML comment.
+// Languages listed here wrap each line instead of prefixing it.
+const COMMENT_WRAP: Record<string, [string, string]> = {
+  quarto: ["<!--", "-->"],
+};
 
-interface Creator {
-  creatorType?: string;
-  firstName?: string;
-  lastName?: string;
-  name?: string;
-}
-
-function creatorFullName(creator: Creator): { first: string; last: string } {
-  if (creator.lastName || creator.firstName) {
-    return { first: creator.firstName || "", last: creator.lastName || "" };
+function commentLine(languageId: string, line: string): string {
+  const wrap = COMMENT_WRAP[languageId];
+  if (wrap) {
+    return line ? `${wrap[0]} ${line} ${wrap[1]}` : `${wrap[0]} ${wrap[1]}`;
   }
-  return { first: "", last: creator.name || "Unknown" };
+  const prefix = COMMENT_PREFIX[languageId] || "#";
+  return line ? `${prefix} ${line}` : prefix;
 }
+
+type CitationStyle = "APA" | "MLA" | "Numbered" | "BibTeX";
 
 function initials(firstName: string): string {
   return firstName
@@ -39,17 +51,6 @@ function initials(firstName: string): string {
     .filter(Boolean)
     .map((part) => `${part[0].toUpperCase()}.`)
     .join(" ");
-}
-
-function getYear(zoteroItem: any): string {
-  const date = zoteroItem.data?.date || "";
-  return date.match(/\d{4}/)?.[0] || "n.d.";
-}
-
-function getCreators(zoteroItem: any): Creator[] {
-  return (zoteroItem.data?.creators || []).filter(
-    (c: Creator) => !c.creatorType || c.creatorType === "author"
-  );
 }
 
 function formatAuthorsAPA(creators: Creator[]): string {
@@ -140,62 +141,9 @@ function formatEntryNumbered(item: any, index: number): string {
   return entry;
 }
 
-const BIBTEX_TYPE: Record<string, string> = {
-  journalArticle: "article",
-  book: "book",
-  bookSection: "incollection",
-  conferencePaper: "inproceedings",
-  thesis: "phdthesis",
-  report: "techreport",
-  webpage: "misc",
-};
-
-function bibtexKey(item: any, usedKeys: Set<string>): string {
-  const creators = getCreators(item);
-  const last = creators.length > 0 ? creatorFullName(creators[0]).last : "unknown";
-  const base = `${last.replace(/[^a-zA-Z0-9]/g, "")}${getYear(item)}`.toLowerCase() || "ref";
-  let key = base;
-  let suffix = 0;
-  while (usedKeys.has(key)) {
-    suffix += 1;
-    key = `${base}${String.fromCharCode(96 + suffix)}`;
-  }
-  usedKeys.add(key);
-  return key;
-}
-
-function formatEntryBibTeX(item: any, usedKeys: Set<string>): string {
-  const type = BIBTEX_TYPE[item.data?.itemType] || "misc";
-  const key = bibtexKey(item, usedKeys);
-  const creators = getCreators(item);
-  const authorField = creators
-    .map((c) => {
-      const { first, last } = creatorFullName(c);
-      return first ? `${last}, ${first}` : last;
-    })
-    .join(" and ");
-
-  const fields: string[] = [];
-  if (authorField) {fields.push(`  author = {${authorField}}`);}
-  fields.push(`  title = {${getZoteroItemTitle(item)}}`);
-  fields.push(`  year = {${getYear(item)}}`);
-  if (item.data?.publicationTitle) {
-    fields.push(`  journal = {${item.data.publicationTitle}}`);
-  }
-  if (item.data?.volume) {fields.push(`  volume = {${item.data.volume}}`);}
-  if (item.data?.issue) {fields.push(`  number = {${item.data.issue}}`);}
-  if (item.data?.pages) {fields.push(`  pages = {${item.data.pages}}`);}
-  if (item.data?.DOI) {fields.push(`  doi = {${item.data.DOI}}`);}
-  const url = item.links?.alternate?.href || item.data?.url;
-  if (url) {fields.push(`  url = {${url}}`);}
-
-  return `@${type}{${key},\n${fields.join(",\n")}\n}`;
-}
-
 function formatBibliography(items: any[], style: CitationStyle): string {
   if (style === "BibTeX") {
-    const usedKeys = new Set<string>();
-    return items.map((item) => formatEntryBibTeX(item, usedKeys)).join("\n\n");
+    return bibtexForItems(items).text;
   }
 
   const sorted =
@@ -216,7 +164,7 @@ function formatBibliography(items: any[], style: CitationStyle): string {
   return `## References\n\n${lines.join("\n\n")}`;
 }
 
-function extractCitedKeys(text: string, knownKeys: Set<string>): string[] {
+export function extractCitedKeys(text: string, knownKeys: Set<string>): string[] {
   const found: string[] = [];
   const seen = new Set<string>();
   const matches = text.match(ZOTERO_KEY_PATTERN) || [];
@@ -229,7 +177,7 @@ function extractCitedKeys(text: string, knownKeys: Set<string>): string[] {
   return found;
 }
 
-async function readWorkspaceText(): Promise<string> {
+export async function readWorkspaceText(): Promise<string> {
   const files = await vscode.workspace.findFiles(SUPPORTED_EXTENSIONS_GLOB, EXCLUDE_GLOB);
   const decoder = new TextDecoder("utf-8");
   const contents = await Promise.all(
@@ -318,15 +266,47 @@ export async function generateBibliographyCommand(options: BibliographyOptions =
     );
   }
 
-  if (citedKeys.length === 0) {
+  const itemsByKey = new Map(zoteroItems.map((item) => [item.key, item]));
+  const citedItems = citedKeys.map((key) => itemsByKey.get(key)).filter(Boolean);
+
+  const language = editor?.document.languageId;
+  if (scope === "file" && editor && (language === "quarto" || language === "typst")) {
+    const proseKeys = proseCitationKeys(editor.document.getText(), language);
+    if (proseKeys.length > 0) {
+      let entries: Awaited<ReturnType<typeof readEntriesOf>> = [];
+      try {
+        const { declared, fallback } = await resolveBibTarget(editor.document);
+        entries = await readEntriesOf(declared.length > 0 ? declared : [fallback]);
+      } catch {
+        entries = [];
+      }
+      for (const item of itemsForProseKeys(proseKeys, entries, zoteroItems)) {
+        if (!citedItems.some((existing: any) => existing.key === item.key)) {
+          citedItems.push(item);
+        }
+      }
+    }
+  }
+
+  if (citedItems.length === 0) {
     vscode.window.showInformationMessage(
       "Sci2Code: No Sci2Code citations found in the scanned scope."
     );
     return;
   }
 
-  const itemsByKey = new Map(zoteroItems.map((item) => [item.key, item]));
-  const citedItems = citedKeys.map((key) => itemsByKey.get(key)).filter(Boolean);
+  if (style === "BibTeX") {
+    const { invalid } = bibtexForItems(citedItems);
+    if (invalid.length > 0) {
+      const titles = invalid.map((k) => `"${itemsByKey.get(k)?.data?.title || k}"`).join(", ");
+      vscode.window.showWarningMessage(
+        `Sci2Code: Left out ${titles} because the citation key or fields cannot be written as valid BibTeX (check the Citation Key line in the item's Extra field).`
+      );
+      if (invalid.length === citedItems.length) {
+        return;
+      }
+    }
+  }
 
   const bibliography = formatBibliography(citedItems, style);
 
@@ -354,10 +334,10 @@ export async function generateBibliographyCommand(options: BibliographyOptions =
   }
 
   if (outputPick.value === "cursor" && editor) {
-    const prefix = COMMENT_PREFIX[editor.document.languageId] || "#";
+    const languageId = templateLanguageFor(editor.document, editor.selection.active);
     const commented = bibliography
       .split("\n")
-      .map((line) => (line ? `${prefix} ${line}` : prefix))
+      .map((line) => commentLine(languageId, line))
       .join("\n");
     await editor.edit((editBuilder) => {
       editBuilder.insert(editor.selection.active, `${commented}\n`);
@@ -374,6 +354,24 @@ export async function generateBibliographyCommand(options: BibliographyOptions =
       ? vscode.Uri.joinPath(editor.document.uri, "..")
       : vscode.workspace.workspaceFolders![0].uri;
   const targetUri = vscode.Uri.joinPath(targetFolder, fileName);
+
+  if (style === "BibTeX") {
+    // Append-only: never overwrite a .bib file the user already has.
+    try {
+      const result = await appendToBibFile(targetUri, citedItems);
+      const doc = await vscode.workspace.openTextDocument(targetUri);
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage(
+        `Sci2Code: Added ${result.added.length} new, ${result.existing.length} already in ${fileName}` +
+          (result.invalid.length ? `, ${result.invalid.length} skipped as invalid.` : ".")
+      );
+    } catch (e) {
+      vscode.window.showErrorMessage(
+        `Sci2Code: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    return;
+  }
 
   await vscode.workspace.fs.writeFile(targetUri, Buffer.from(bibliography, "utf-8"));
   const doc = await vscode.workspace.openTextDocument(targetUri);

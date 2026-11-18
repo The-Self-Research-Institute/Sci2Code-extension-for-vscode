@@ -8,16 +8,24 @@ import {
   insertManualCitationCommand,
 } from "./features/insertCitationCommand";
 import {
+  ATTACH_CODE_ID_COMMAND,
   registerCompletion,
   triggerPatternManager,
 } from "./features/docCompletion";
 import { generateBibliographyCommand } from "./features/bibliographyService";
+import { syncBibliographyCommand } from "./features/bibSyncCommand";
+import { CITE_IN_TEXT_COMMAND, registerCiteCompletion } from "./features/citeCompletion";
+import { citeInTextCommand, proseLanguageAt } from "./features/citeInTextCommand";
 import { registerCitationHover } from "./features/citationHover";
 import { contextService } from "./services/contextService";
 import { libraryCache } from "./services/libraryCache";
 import { ZOTERO_CONTEXT } from "./system/constants";
 import { Sci2CodeAPI, CitationItem } from "./api/types";
-import { getZoteroItemTitle } from "./utils/zotero.utils";
+import { attachCodeIdToItem } from "./utils/zotero.utils";
+import { creatorDisplayName } from "./features/snippetText";
+
+const WALKTHROUGH_ID = "SelfResearchInstitute.sci2code#sci2code.getStarted";
+const WALKTHROUGH_SHOWN_KEY = "sci2code.gettingStartedShown";
 
 const BACKGROUND_SYNC_MS = 5 * 60 * 1000;
 const FOCUS_SYNC_MIN_MS = 60 * 1000;
@@ -44,11 +52,13 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  vscode.authentication.onDidChangeSessions((e) => {
-    if (e.provider.id === ZoteroAuthenticationProvider.id) {
-      panelProvider.refresh();
-    }
-  });
+  context.subscriptions.push(
+    vscode.authentication.onDidChangeSessions((e) => {
+      if (e.provider.id === ZoteroAuthenticationProvider.id) {
+        panelProvider.refresh();
+      }
+    })
+  );
 
   libraryCache.init(context);
 
@@ -98,7 +108,6 @@ export function activate(context: vscode.ExtensionContext) {
         
         if (apiKey && apiKey.trim()) {
           // Update the secret storage with the new API key
-          const authProvider = new ZoteroAuthenticationProvider(context.secrets);
           await context.secrets.store(ZoteroAuthenticationProvider.secretKey, apiKey);
           
           // Clear old context and trigger re-authentication with the new key
@@ -131,8 +140,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   registerStaticCommands(context, panelProvider, activateSession);
+  void showGettingStartedOnce(context);
   registerCompletionProviders(context);
-  context.subscriptions.push(registerCitationHover());
+  context.subscriptions.push(registerCitationHover(), registerCiteCompletion());
 
   // Export Public API for other extensions (e.g., OntoCode)
   const api: Sci2CodeAPI = {
@@ -206,7 +216,7 @@ function formatAsTurtle(citation: CitationItem): string {
 
   if (citation.creators && citation.creators.length > 0) {
     citation.creators.forEach((creator, idx) => {
-      const name = `${creator.firstName} ${creator.lastName}`.trim();
+      const name = creatorDisplayName(creator);
       const comma = idx < citation.creators.length - 1 ? ' ,' : ' ;';
       lines.push(`  prov:wasAttributedTo [ foaf:name "${escapeString(name)}" ]${comma}`);
     });
@@ -253,7 +263,7 @@ function formatAsRDFXML(citation: CitationItem): string {
 
   if (citation.creators && citation.creators.length > 0) {
     citation.creators.forEach(creator => {
-      const name = `${creator.firstName} ${creator.lastName}`.trim();
+      const name = creatorDisplayName(creator);
       lines.push(`  <prov:wasAttributedTo>`);
       lines.push(`    <foaf:Person>`);
       lines.push(`      <foaf:name>${escapeXML(name)}</foaf:name>`);
@@ -331,11 +341,14 @@ function registerStaticCommands(
     vscode.commands.registerCommand("sci2code.openSettings", () => {
       vscode.commands.executeCommand("workbench.action.openSettings", "sci2code");
     }),
+    vscode.commands.registerCommand("sci2code.openGettingStarted", () =>
+      vscode.commands.executeCommand("workbench.action.openWalkthrough", WALKTHROUGH_ID, false)
+    ),
     vscode.commands.registerCommand("sci2code.showLogs", () => {
       outputChannel.show(true);
     }),
     vscode.commands.registerCommand("sci2code.editTemplateForCurrentLanguage", async () => {
-      const supported = ["javascript", "typescript", "python", "r", "julia", "default"];
+      const supported = ["javascript", "typescript", "python", "r", "julia", "quarto", "typst", "default"];
       const editor = vscode.window.activeTextEditor;
       const currentLang = editor?.document.languageId;
       const pickItems = supported.map((id) => ({
@@ -368,6 +381,8 @@ function registerStaticCommands(
       await config.update("templates", undefined, vscode.ConfigurationTarget.Workspace);
       vscode.window.showInformationMessage("Sci2Code citation templates reset to defaults.");
     }),
+    vscode.commands.registerCommand(ATTACH_CODE_ID_COMMAND, attachCodeIdToItem),
+    vscode.commands.registerCommand(CITE_IN_TEXT_COMMAND, citeInTextCommand),
     vscode.commands.registerCommand("sci2code.logout", async () => {
       try {
         const session = await vscode.authentication.getSession(
@@ -406,9 +421,13 @@ function registerStaticCommands(
     vscode.commands.registerCommand("sci2code.login", () =>
       activateSession(true, true)
     ),
-    vscode.commands.registerCommand("sci2code.insertZoteroCitation", () =>
-      insertCitationCommand(zoteroStatusItem)
-    ),
+    vscode.commands.registerCommand("sci2code.insertZoteroCitation", () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && proseLanguageAt(editor.document, editor.selection.active)) {
+        return citeInTextCommand();
+      }
+      return insertCitationCommand(zoteroStatusItem);
+    }),
     vscode.commands.registerCommand(
       "sci2code.insertCitationFromSidebar",
       insertCitationFromSidebarCommand
@@ -421,6 +440,10 @@ function registerStaticCommands(
       "sci2code.generateBibliography",
       generateBibliographyCommand
     ),
+    vscode.commands.registerCommand(
+      "sci2code.syncBibliography",
+      syncBibliographyCommand
+    ),
     vscode.commands.registerCommand("zotero.refresh", async () => {
       // Re-authenticate to fetch fresh data from Zotero
       const result = await activateSession(false);
@@ -429,6 +452,24 @@ function registerStaticCommands(
       }
     })
   );
+}
+
+async function showGettingStartedOnce(context: vscode.ExtensionContext) {
+  if (context.globalState.get<boolean>(WALKTHROUGH_SHOWN_KEY)) {
+    return;
+  }
+  await context.globalState.update(WALKTHROUGH_SHOWN_KEY, true);
+  const hasCredentials =
+    !!(await context.secrets.get(ZoteroAuthenticationProvider.secretKey)) ||
+    !!vscode.workspace.getConfiguration("sci2code").get<string>("apiKey")?.trim();
+  if (hasCredentials) {
+    return;
+  }
+  try {
+    await vscode.commands.executeCommand("workbench.action.openWalkthrough", WALKTHROUGH_ID, false);
+  } catch (e) {
+    console.error("[Sci2Code] Could not open the getting started walkthrough:", e);
+  }
 }
 
 async function restoreCachedLibrary(context: vscode.ExtensionContext) {
@@ -489,6 +530,20 @@ function registerCompletionProviders(context: vscode.ExtensionContext) {
       selector: [
         { language: "julia", scheme: "file" },
         { language: "julia", scheme: "vscode-notebook-cell" },
+      ],
+    },
+    {
+      id: "quarto",
+      selector: [
+        { language: "quarto", scheme: "file" },
+        { language: "quarto", scheme: "vscode-notebook-cell" },
+      ],
+    },
+    {
+      id: "typst",
+      selector: [
+        { language: "typst", scheme: "file" },
+        { language: "typst", scheme: "vscode-notebook-cell" },
       ],
     },
   ];

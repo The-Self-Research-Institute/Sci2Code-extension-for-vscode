@@ -167,6 +167,8 @@ function getDefaultTriggersForLanguage(languageId: string): string[] {
     html: ["<!--", '"""'],
     css: ["/*", '"""'],
     markdown: ["#", '"""'],
+    quarto: ["<!--", "#"],
+    typst: ["//", "/*"],
     yaml: ["#", '"""'],
     json: ['"""'],
   };
@@ -283,6 +285,12 @@ function isValidDocumentationSuffix(
     case "python":
     case "julia":
       return /^\s*("""|\'\'\')?\s*$/.test(suffix);
+
+    case "quarto":
+      return /^\s*(-->)?\s*$/.test(suffix);
+
+    case "typst":
+      return /^\s*(\*+\/)?\s*$/.test(suffix);
 
     case "r":
     case "ruby":

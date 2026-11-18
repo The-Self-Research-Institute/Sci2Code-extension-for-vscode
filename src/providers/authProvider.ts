@@ -90,7 +90,7 @@ export class ZoteroAuthenticationProvider
     if (session?.accessToken && !previousToken) {
       added.push(session);
     } else if (!session?.accessToken && previousToken) {
-      removed.push(session);
+      removed.push(new ZoteroSession(previousToken));
     } else if (session?.accessToken !== previousToken) {
       changed.push(session);
     } else {

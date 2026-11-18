@@ -4,6 +4,50 @@ All notable changes to the "Sci2Code" extension will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-11-18
+
+> **In short:** Sci2Code now works with **Quarto** and **Typst**. You can cite a paper in the middle of a sentence, and your `.bib` file stays up to date for you.
+
+### New
+- **Quarto and Typst support.** Citations, hover previews and the sidebar now work in `.qmd` and `.typ` files. You need the Quarto and Tinymist Typst extensions installed.
+- **Cite in Text.** Put the cursor in a sentence, choose a paper, and Sci2Code adds it to your `.bib` file and writes `[@key]` (Quarto) or `@key` (Typst) for you. Start it from the Command Palette, from the **Cite in text** button in the sidebar, or by typing `@`. If anything goes wrong, your document is left unchanged.
+- **Sync BibTeX File.** One command adds the papers cited in a document to its `.bib` file. It finds the right file for you, never rewrites what is already there, skips papers that are already in it, and tells you each paper's key. It also reads the `[@key]` and `@key` citations in your text: keys already in the `.bib` are confirmed, a missing key that matches exactly one paper in your library is added, and anything it cannot match is listed instead of being ignored.
+- **Citation keys in the sidebar.** In Quarto and Typst files each paper shows the `@key` you would use. Green means it is already in your `.bib`, blue means the key is only proposed, and amber means the `.bib` is not declared in the document (so the key would not work when you render). The footer shows `Bibliography: references.bib`.
+- **A clearer sidebar.**
+  - Hover a paper to see a **Cite in text** or **Insert** button. Clicking the card now shows the paper's details instead of editing your file.
+  - In **Cited in file**, click a citation to jump to it.
+  - The paper you just used confirms what happened.
+  - The log-out icon is replaced by a gear menu with sync, settings and log out.
+  - Smaller text is easier to read.
+- **Clickable DOI in the hover.** Hovering over a citation key now shows the DOI as a link that opens `doi.org`, next to the existing Open and Copy key actions.
+- **A getting-started guide.** A short walkthrough (connect Zotero, cite in code, cite in text, sync your `.bib`) is now in VS Code's Welcome page, and opens once for brand-new users who haven't connected Zotero yet. You can reopen it any time with **Sci2Code: Open Getting Started**.
+- **Your own triggers work in Quarto and Typst text.** A trigger such as `&&` lists your papers anywhere in the text. The trigger, sidebar, Command Palette, manual citation and `@` all insert `@key` in text and the reference comment in code. In Typst, `//` above a `#let` gives the reference comment, and in Quarto text `<!--` on its own line does.
+- **Generate Bibliography counts Cite in Text citations.** In a Quarto or Typst file it now includes the papers you cited with `@key`, not only reference comments.
+- **Better default templates.** A new `${zotero.year}` placeholder gives just the year, and a new `${zotero.doiUrl}` placeholder gives the DOI as an `https://doi.org/...` link for templates you write yourself. The default templates keep the plain DOI. Lines for a missing DOI, URL or year are left out instead of showing `N/A`. The JS, TS, R and Julia templates now include authors and year. Templates you wrote yourself are not changed.
+
+### Changed
+- **Generate Bibliography** with BibTeX and **Write to File** now adds missing papers to an existing `references.bib` instead of overwriting it. Papers with an invalid citation key are skipped and you are told which ones.
+- Repository links now point to the renamed GitHub repository.
+
+### Fixed
+**Inserting citations**
+- Triggers now fire only in the languages they are set for, and only when typed exactly (`#` no longer fires inside `#####`).
+- The `.bib` file no longer gets a `zotero.org` link as the `url`, and Typst no longer gets a new `#bibliography` line on every citation.
+- "Inserted" now only appears when the editor really accepted the edit.
+- Citations inside Quarto code chunks use that chunk's own comment style, so they no longer break the code.
+- Titles with special characters (`$`, braces, backslashes, `*/`, `-->`, triple quotes) can no longer garble or break the inserted comment or code.
+- Authors with a single name, such as an organisation, no longer show as "undefined".
+- Function names are now found in Python, R, Julia, Quarto and Typst, and in arrow functions and classes in JS and TS. The sidebar no longer inserts the placeholder name `function_from_sidebar`.
+
+**Sidebar and Zotero**
+- Scrolling through the suggestion list no longer tags papers in Zotero. It only happens when you accept one. Papers in group libraries are skipped, and the error message now says why tagging failed.
+- **Cited in file** now finds citations in every language, and each citation keeps its own title.
+- Cancelling the API-key prompt no longer causes an error.
+- **Add to Zotero** only changes whole keys, and the sidebar's security token is now properly random.
+
+**Quarto bibliographies**
+- A single `bibliography` in a document replaces the project's only when the project's is also a single file. If either one is a list, both are used.
+
 ## [1.0.11] - 2026-10-23
 
 ### Added

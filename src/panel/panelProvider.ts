@@ -1,12 +1,17 @@
 import * as vscode from "vscode";
+import { randomBytes } from "crypto";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import { insertCitationFromSidebarCommand } from "../features/insertCitationCommand";
-import { renderTemplate } from "../features/templateService";
+import { renderTemplate, renderTemplateAt } from "../features/templateService";
 import { createManualItemInZotero } from "../features/insertCitationCommand";
 import { ZoteroAuthenticationProvider } from "../providers/authProvider";
 import { searchZoteroItems } from "../zotero/api";
 import { getPanelHtml } from "./panelHtml";
+import { BibContext, loadBibContext } from "../features/bibFile";
+import { citeInTextCommand, proseLanguageAt } from "../features/citeInTextCommand";
+import { describeCiteKey } from "../features/bibtex";
+import { itemsForProseKeys, proseCitationKeys } from "../features/proseSync";
 import {
   DEFAULT_FILTERS,
   Filters,
@@ -42,6 +47,8 @@ const FORMAT_LABELS: Record<string, string> = {
   typescriptreact: "JSDoc",
   r: "R",
   julia: "Julia",
+  quarto: "Quarto",
+  typst: "Typst",
 };
 
 interface Feedback {
@@ -65,7 +72,14 @@ export class PanelProvider implements vscode.WebviewViewProvider {
   private extraRaw = new Map<string, any>();
   private feedback: Feedback = { text: "", warn: false };
   private feedbackTimer?: NodeJS.Timeout;
+  private inserted?: { key: string; label: string };
+  private selectionTimer?: NodeJS.Timeout;
+  private bibContext?: BibContext;
+  private bibSeq = 0;
+  private bibTimer?: NodeJS.Timeout;
+  private insertedTimer?: NodeJS.Timeout;
   private citedKeys = new Set<string>();
+  private commentKeys = new Set<string>();
   private unresolved: UnresolvedCitation[] = [];
   private citedTimer?: NodeJS.Timeout;
   private cachedRaw: any[] | undefined;
@@ -80,19 +94,38 @@ export class PanelProvider implements vscode.WebviewViewProvider {
       this.filters = this.sanitize(saved);
     }
 
+    const bibWatcher = vscode.workspace.createFileSystemWatcher("**/*.bib");
     this.disposables.push(
-      vscode.window.onDidChangeActiveTextEditor(() => this.recomputeCited(0)),
+      vscode.window.onDidChangeActiveTextEditor(() => {
+        this.recomputeCited(0);
+        this.refreshBib();
+      }),
       vscode.workspace.onDidChangeTextDocument((e) => {
         if (e.document === vscode.window.activeTextEditor?.document) {
-          this.recomputeCited(300);
+          this.recomputeCited(100);
+          clearTimeout(this.bibTimer);
+          this.bibTimer = setTimeout(() => this.refreshBib(), 600);
         }
-      })
+      }),
+      vscode.window.onDidChangeTextEditorSelection((e) => {
+        if (e.textEditor === vscode.window.activeTextEditor && e.textEditor.document.languageId === "quarto") {
+          clearTimeout(this.selectionTimer);
+          this.selectionTimer = setTimeout(() => this.post(), 150);
+        }
+      }),
+      bibWatcher.onDidChange(() => this.refreshBib()),
+      bibWatcher.onDidCreate(() => this.refreshBib()),
+      bibWatcher.onDidDelete(() => this.refreshBib()),
+      bibWatcher
     );
   }
 
   dispose(): void {
     clearTimeout(this.citedTimer);
     clearTimeout(this.feedbackTimer);
+    clearTimeout(this.insertedTimer);
+    clearTimeout(this.selectionTimer);
+    clearTimeout(this.bibTimer);
     clearTimeout(this.searchTimer);
     this.disposables.forEach((d) => d.dispose());
   }
@@ -103,9 +136,7 @@ export class PanelProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, "resources", "panel")],
     };
-    const nonce = Array.from({ length: 24 }, () =>
-      Math.floor(Math.random() * 36).toString(36)
-    ).join("");
+    const nonce = randomBytes(18).toString("base64");
     view.webview.html = getPanelHtml(view.webview, this.context.extensionUri, nonce);
 
     view.webview.onDidReceiveMessage((message) => this.handleMessage(message));
@@ -139,6 +170,7 @@ export class PanelProvider implements vscode.WebviewViewProvider {
     switch (message?.type) {
       case "ready":
         this.recomputeCited(0);
+        this.refreshBib();
         break;
       case "filters":
         this.filters = this.sanitize({ ...this.filters, ...message.filters });
@@ -159,12 +191,22 @@ export class PanelProvider implements vscode.WebviewViewProvider {
         break;
       case "insert":
         if (typeof message.key === "string") {
-          this.insert(message.key);
+          void this.insert(message.key);
         }
         break;
       case "details":
         if (typeof message.key === "string") {
           this.openDetails(message.key);
+        }
+        break;
+      case "citeInText":
+        if (typeof message.key === "string") {
+          void this.citeInText(message.key);
+        }
+        break;
+      case "goto":
+        if (typeof message.key === "string") {
+          void this.gotoCitation(message.key);
         }
         break;
       case "closeDetails":
@@ -179,6 +221,9 @@ export class PanelProvider implements vscode.WebviewViewProvider {
         break;
       case "login":
         vscode.commands.executeCommand("sci2code.login");
+        break;
+      case "openSettings":
+        vscode.commands.executeCommand("sci2code.openSettings");
         break;
       case "openKeys":
         vscode.env.openExternal(vscode.Uri.parse("https://www.zotero.org/settings/keys"));
@@ -204,8 +249,28 @@ export class PanelProvider implements vscode.WebviewViewProvider {
         this.openItem(typeof message.key === "string" ? message.key : this.selectedKey);
         break;
       case "copyKey":
-        this.copy(this.keyOrSelected(message.key)?.key, "Zotero key");
+        this.copy(this.keyOrSelected(message.key)?.key, "Zotero ID");
         break;
+      case "copyCiteKey": {
+        const picked = this.keyOrSelected(message.key);
+        const raw = picked ? this.rawFor(picked.key) : undefined;
+        if (this.bibContext && !this.bibContext.declared) {
+          this.setFeedback(
+            `Declare the bibliography in this document first (bibliography: ${this.bibContext.label} or #bibliography("${this.bibContext.label}")), or the citation will not resolve when you render.`,
+            true
+          );
+          this.post();
+          break;
+        }
+        const info = raw && this.bibContext ? describeCiteKey(raw, this.bibContext.entries) : undefined;
+        if (!info || !info.inFile) {
+          this.setFeedback("That paper is not in the .bib file yet. Run Sync BibTeX File first, then copy its key.", true);
+          this.post();
+        } else {
+          void this.copy("@" + info.key, "citation key");
+        }
+        break;
+      }
       case "copyDoi":
         this.copy(this.keyOrSelected(message.key)?.doi, "DOI");
         break;
@@ -313,7 +378,7 @@ export class PanelProvider implements vscode.WebviewViewProvider {
     return unresolvedAsItems(this.unresolved, DEFAULT_FILTERS).find((i) => i.key === key);
   }
 
-  private insert(key: string): void {
+  private async insert(key: string): Promise<void> {
     const unresolved = this.unresolved.some((u) => u.key === key);
     if (unresolved) {
       this.openDetails(key);
@@ -336,8 +401,76 @@ export class PanelProvider implements vscode.WebviewViewProvider {
       this.post();
       return;
     }
-    insertCitationFromSidebarCommand(raw);
-    this.setFeedback(`Inserted: ${item.title}`);
+    const file = vscode.window.activeTextEditor.document.fileName.split(/[/\\]/).pop() || "file";
+    const inserted = await insertCitationFromSidebarCommand(raw);
+    if (!inserted) {
+      this.setFeedback("Nothing was inserted. Check the file is editable and try again.", true);
+      this.post();
+      return;
+    }
+    this.markInserted(key, `Inserted in ${file}`);
+    this.setFeedback(`Inserted in ${file}: ${item.title}`);
+    this.post();
+  }
+
+  private async citeInText(key: string): Promise<void> {
+    const raw = this.rawFor(key);
+    const editor = vscode.window.activeTextEditor;
+    if (!raw || !editor) {
+      this.setFeedback("Open a Quarto or Typst file and place the cursor where the citation should go.", true);
+      this.post();
+      return;
+    }
+    const file = editor.document.fileName.split(/[/\\]/).pop() || "file";
+    const outcome = await citeInTextCommand(raw);
+    if (outcome?.status === "cited") {
+      this.markInserted(key, `Cited in ${file}`);
+      this.setFeedback(`Cited @${outcome.key} in ${file}`);
+    } else if (outcome && outcome.status !== "cancelled") {
+      this.setFeedback("Nothing was inserted. See the message for what to do next.", true);
+    }
+    this.post();
+  }
+
+  private markInserted(key: string, label: string): void {
+    this.inserted = { key, label };
+    clearTimeout(this.insertedTimer);
+    this.insertedTimer = setTimeout(() => {
+      this.inserted = undefined;
+      this.post();
+    }, FEEDBACK_MS);
+  }
+
+  private async gotoCitation(key: string): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      this.setFeedback("Open the file that contains this citation first.", true);
+      this.post();
+      return;
+    }
+    const document = editor.document;
+    const text = document.getText();
+    const starts = Array.from(
+      text.matchAll(new RegExp(`(?<![A-Za-z0-9_])${key}(?![A-Za-z0-9_])`, "g")),
+      (m) => m.index ?? 0
+    );
+    if (starts.length === 0) {
+      this.setFeedback("That citation was not found in the active file.", true);
+      this.post();
+      return;
+    }
+    const here = document.offsetAt(editor.selection.start);
+    const index = starts.find((s) => s > here) ?? starts[0];
+    const range = new vscode.Range(document.positionAt(index), document.positionAt(index + key.length));
+    this.selectedKey = key;
+    await vscode.window.showTextDocument(document, {
+      viewColumn: editor.viewColumn,
+      selection: range,
+      preserveFocus: false,
+    });
+    if (starts.length > 1) {
+      this.setFeedback(`Citation ${starts.indexOf(index) + 1} of ${starts.length} in this file. Click again for the next.`);
+    }
     this.post();
   }
 
@@ -391,7 +524,9 @@ export class PanelProvider implements vscode.WebviewViewProvider {
       const document = editor.document;
       const text = document.getText();
       const edit = new vscode.WorkspaceEdit();
-      for (let i = text.indexOf(key); i >= 0; i = text.indexOf(key, i + key.length)) {
+      // Whole-word match, so replacing MANUAL_12 never edits MANUAL_123.
+      for (const m of text.matchAll(new RegExp(`(?<![A-Za-z0-9_])${key}(?![A-Za-z0-9_])`, "g"))) {
+        const i = m.index ?? 0;
         edit.replace(
           document.uri,
           new vscode.Range(document.positionAt(i), document.positionAt(i + key.length)),
@@ -447,13 +582,71 @@ export class PanelProvider implements vscode.WebviewViewProvider {
     this.recomputeCited(0);
   }
 
+  private refreshBib(): void {
+    const editor = vscode.window.activeTextEditor;
+    const seq = ++this.bibSeq;
+    if (!editor || !["quarto", "typst"].includes(editor.document.languageId)) {
+      if (this.bibContext) {
+        this.bibContext = undefined;
+        this.post();
+      }
+      return;
+    }
+    loadBibContext(editor.document).then(
+      (context) => {
+        if (seq === this.bibSeq) {
+          this.bibContext = context;
+          this.post();
+          this.recomputeCited(0);
+        }
+      },
+      () => {
+        if (seq === this.bibSeq) {
+          this.bibContext = undefined;
+          this.post();
+        }
+      }
+    );
+  }
+
+  private citeKeyFor(item: PanelItem): { key: string; inFile: boolean; file: string; declared: boolean; commentOnly: boolean } | null {
+    const context = this.bibContext;
+    if (!context || item.unresolved || item.needsReview || item.isFile) {
+      return null;
+    }
+    const raw = this.rawFor(item.key);
+    if (!raw) {
+      return null;
+    }
+    const info = describeCiteKey(raw, context.entries);
+    return {
+      key: info.key,
+      inFile: info.inFile,
+      file: context.label,
+      declared: context.declared,
+      commentOnly: !info.inFile && this.commentKeys.has(item.key),
+    };
+  }
+
   private recomputeCited(delay: number): void {
     clearTimeout(this.citedTimer);
     this.citedTimer = setTimeout(() => {
       const editor = vscode.window.activeTextEditor;
       const known = new Set(this.items.map((i) => i.key));
       const text = editor ? editor.document.getText() : "";
-      this.citedKeys = new Set(extractCitedKeys(text, known));
+      const cited = new Set(extractCitedKeys(text, known));
+      this.commentKeys = new Set(cited);
+      const language = editor?.document.languageId;
+      if (editor && (language === "quarto" || language === "typst")) {
+        const proseKeys = proseCitationKeys(text, language);
+        if (proseKeys.length > 0) {
+          const library = Array.from(this.rawByKey.values());
+          for (const item of itemsForProseKeys(proseKeys, this.bibContext?.entries ?? [], library)) {
+            cited.add(item.key);
+          }
+        }
+      }
+      this.citedKeys = cited;
       this.unresolved = findUnresolvedCitations(text, known);
       this.post();
     }, delay);
@@ -464,7 +657,7 @@ export class PanelProvider implements vscode.WebviewViewProvider {
     return (editor && FORMAT_LABELS[editor.document.languageId]) || "Default";
   }
 
-  private detailsModel(): (PanelItem & { code: string }) | null {
+  private detailsModel(): (PanelItem & { code: string; citeKey?: ReturnType<PanelProvider["citeKeyFor"]> }) | null {
     const item = this.findItem(this.detailsKey);
     if (!item) {
       return null;
@@ -478,17 +671,17 @@ export class PanelProvider implements vscode.WebviewViewProvider {
     }
     let code = "";
     if (!item.needsReview) {
-      const languageId = vscode.window.activeTextEditor?.document.languageId || "default";
+      const editor = vscode.window.activeTextEditor;
       try {
-        code = renderTemplate(languageId, raw, {
-          codeId: "<generated>",
-          functionName: null,
-        }).value;
+        const meta = { codeId: "<generated>", functionName: null };
+        code = editor
+          ? renderTemplateAt(editor.document, editor.selection.active, raw, meta).value
+          : renderTemplate("default", raw, meta).value;
       } catch {
         code = "";
       }
     }
-    return { ...item, code };
+    return { ...item, code, citeKey: this.citeKeyFor(item) };
   }
 
   private post(): void {
@@ -564,7 +757,10 @@ export class PanelProvider implements vscode.WebviewViewProvider {
         total: paged.total,
         loadingRows: streaming ? paged.pending : 0,
         loadProgress: streaming && progress ? progress : null,
-        items: paged.items,
+        items: paged.items.map((item) => ({ ...item, citeKey: this.citeKeyFor(item) })),
+        bibTarget: this.bibContext
+          ? this.bibContext.label + (this.bibContext.declared ? "" : " (not declared)")
+          : "",
         page: paged.page,
         pageCount: paged.pageCount,
         searching: this.searching,
@@ -576,9 +772,11 @@ export class PanelProvider implements vscode.WebviewViewProvider {
         selectedKey: this.selectedKey,
         details: this.detailsModel(),
         hasEditor: !!editor,
+        citeMode: editor && proseLanguageAt(editor.document, editor.selection.active) ? "prose" : "code",
         fileName: editor ? editor.document.fileName.split(/[/\\]/).pop() : "",
         formatLabel: this.formatLabel(),
         feedback: this.feedback,
+        inserted: this.inserted ?? null,
       },
     });
   }
