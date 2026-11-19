@@ -2,6 +2,7 @@
   const vscode = acquireVsCodeApi();
   const $ = (id) => document.getElementById(id);
   const DEFAULT_FEEDBACK = "Click a reference to insert it";
+  const CITED_FEEDBACK = "Click a citation to jump to it in the file";
   const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || "");
 
   const svg = (paths) =>
@@ -26,6 +27,8 @@
   };
   const ICON_OPEN = svg('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>');
   const ICON_COPY = svg('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>');
+  const ICON_AT = svg('<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>');
+  const ICON_INSERT = svg('<path d="M5 12h14"/><path d="M12 5v14"/>');
   const ICON_EYE = svg('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>');
 
   let model = null;
@@ -114,21 +117,49 @@
     return b;
   }
 
+  function primaryAction(item) {
+    if (model.filters.tab === "cited") {
+      return "goto";
+    }
+    return "details";
+  }
+
+  function citeAction() {
+    return model.citeMode === "prose" ? "citeInText" : "insert";
+  }
+
+  function citeLabel() {
+    return model.citeMode === "prose" ? "Cite in text" : "Insert";
+  }
+
+  function primaryLabel(item) {
+    const action = primaryAction(item);
+    if (action === "goto") {
+      return "Go to citation";
+    }
+    return item.needsReview ? "Review" : "Details";
+  }
+
   function renderRow(item) {
+    const justInserted = !!model.inserted && model.inserted.key === item.key;
+    const primary = primaryAction(item);
     const row = document.createElement("div");
-    row.className = "reference-row" + (item.key === model.selectedKey ? " selected" : "");
+    row.className =
+      "reference-row" +
+      (item.key === model.selectedKey ? " selected" : "") +
+      (justInserted ? " inserted" : "");
     row.setAttribute("role", "listitem");
 
     const paper = document.createElement("button");
     paper.type = "button";
     paper.className = "paper" + (item.key === model.selectedKey ? " selected" : "");
     paper.dataset.key = item.key;
-    paper.dataset.review = String(item.needsReview);
-    paper.setAttribute(
-      "aria-label",
-      (item.needsReview ? "Review missing metadata: " : "Insert citation: ") + item.title
-    );
-    paper.title = item.needsReview ? "Open details" : "Insert citation";
+    paper.dataset.primary = primary;
+    const verb =
+      primary === "goto" ? "Go to citation: "
+      : "Show details: ";
+    paper.setAttribute("aria-label", verb + item.title);
+    paper.title = primaryLabel(item);
 
     const icon = document.createElement("span");
     icon.innerHTML = iconFor(item);
@@ -147,6 +178,31 @@
     meta.className = "meta" + (item.needsReview ? " warning" : "");
     meta.textContent = metaLine(item);
     text.append(title, meta);
+    if (item.citeKey) {
+      const cite = document.createElement("span");
+      cite.className =
+        "citekey" +
+        (item.citeKey.inFile ? (item.citeKey.declared ? " in-file" : " undeclared") : "");
+      cite.title = item.citeKey.inFile && !item.citeKey.declared
+        ? item.citeKey.file + " is not declared in this document, so this key will not resolve when you render. Declare the bibliography first."
+        : item.citeKey.inFile
+        ? "Already in " + item.citeKey.file + " under this key. Use the @ button to copy it."
+        : "Proposed key, not final. Sync BibTeX File assigns the real key and may add a letter if another paper has the same author and year.";
+      cite.textContent = "@" + item.citeKey.key;
+      const where = document.createElement("span");
+      where.className = "citekey-note";
+      where.textContent = item.citeKey.inFile
+        ? " · in " + item.citeKey.file + (item.citeKey.declared ? "" : " (not declared)")
+        : item.citeKey.commentOnly
+        ? " · comment only, not in " + item.citeKey.file + " yet"
+        : " · proposed";
+      if (item.citeKey.commentOnly) {
+        cite.className = "citekey comment-only";
+        cite.title = "Cited by a reference comment only. Run Sync BibTeX File to add it to " + item.citeKey.file + ".";
+      }
+      cite.append(where);
+      text.append(cite);
+    }
     paper.append(icon, text);
 
     const actions = document.createElement("div");
@@ -154,10 +210,41 @@
     if (item.url) {
       actions.append(actionButton("openWeb", item.key, "Open in Zotero", ICON_OPEN));
     }
-    actions.append(actionButton("copyKey", item.key, "Copy key", ICON_COPY));
+    if (primary === "goto" && !item.unresolved && !item.needsReview && model.hasEditor) {
+      actions.prepend(
+        actionButton(
+          citeAction(),
+          item.key,
+          model.citeMode === "prose" ? "Cite again at cursor" : "Insert again at cursor",
+          ICON_INSERT
+        )
+      );
+    }
+    if (item.citeKey && item.citeKey.inFile && item.citeKey.declared) {
+      actions.append(actionButton("copyCiteKey", item.key, "Copy @" + item.citeKey.key + " to cite it", ICON_AT));
+    }
+    actions.append(actionButton("copyKey", item.key, "Copy Zotero ID", ICON_COPY));
     actions.append(actionButton("details", item.key, "Preview details", ICON_EYE));
 
-    row.append(paper, actions);
+    const canAct = !item.unresolved && !item.needsReview && !item.isFile && model.hasEditor;
+    let hint;
+    if (!justInserted && model.filters.tab === "library" && canAct) {
+      hint = document.createElement("button");
+      hint.type = "button";
+      hint.className = "cite-button";
+      hint.dataset.action = citeAction();
+      hint.dataset.key = item.key;
+      hint.textContent = citeLabel();
+      hint.title = citeLabel() + ": " + item.title;
+      hint.setAttribute("aria-label", citeLabel() + ": " + item.title);
+    } else {
+      hint = document.createElement("span");
+      hint.className = "insert-hint";
+      hint.setAttribute("aria-hidden", "true");
+      hint.textContent = justInserted ? model.inserted.label : primaryLabel(item);
+    }
+
+    row.append(paper, actions, hint);
     return row;
   }
 
@@ -251,6 +338,7 @@
     $("open").hidden = !d.url;
     $("open").textContent = d.unresolved ? "Open link" : d.needsReview ? "Open in Zotero to add details" : "Open in Zotero";
     $("copyDoi").hidden = !d.doi;
+    $("copyCiteKey").hidden = !(d.citeKey && d.citeKey.inFile && d.citeKey.declared);
     $("pvDetails").hidden = d.needsReview;
     $("pvCode").textContent = d.code || "";
   }
@@ -265,6 +353,11 @@
   function closeBibMenu() {
     $("bibMenu").classList.add("hidden");
     $("bibMenuButton").setAttribute("aria-expanded", "false");
+  }
+
+  function closeConnMenu() {
+    $("connMenu").classList.add("hidden");
+    $("connection").setAttribute("aria-expanded", "false");
   }
 
   function render() {
@@ -293,6 +386,13 @@
     $("citedCount").textContent = model.citedCount;
     $("tabLibrary").setAttribute("aria-selected", String(model.filters.tab === "library"));
     $("tabCited").setAttribute("aria-selected", String(model.filters.tab === "cited"));
+
+    const strip = $("targetStrip");
+    strip.classList.toggle("idle", !model.hasEditor);
+    $("targetLabel").textContent = !model.hasEditor
+      ? "Open a file to insert citations"
+      : model.filters.tab === "cited" ? "Citations in" : "Insert into";
+    $("targetFile").textContent = model.hasEditor ? model.fileName : "";
 
     const filterNote = model.filterCount ? " \u00b7 " + model.filterCount + (model.filterCount === 1 ? " filter" : " filters") : "";
     const loadNote = model.loadProgress
@@ -324,12 +424,19 @@
     renderDetails();
 
     $("target").disabled = !model.hasEditor;
-    $("targetText").textContent = model.hasEditor
-      ? model.fileName + " \u00b7 cursor \u00b7 " + model.formatLabel
-      : "No file open";
+    $("targetText").textContent = !model.hasEditor
+      ? "No file open"
+      : model.bibTarget
+        ? "Bibliography: " + model.bibTarget
+        : model.fileName + " \u00b7 cursor \u00b7 " + model.formatLabel;
+    $("target").title = model.bibTarget
+      ? model.fileName + " uses " + model.bibTarget + ". Cite in Text and Sync BibTeX File write there. Click to edit the citation template."
+      : "Edit citation template for this language";
     const feedback = $("feedback");
     const hasMessage = !!model.feedback.text;
-    feedback.textContent = hasMessage ? model.feedback.text : DEFAULT_FEEDBACK;
+    feedback.textContent = hasMessage
+      ? model.feedback.text
+      : model.filters.tab === "cited" ? CITED_FEEDBACK : DEFAULT_FEEDBACK;
     feedback.className = "feedback" + (hasMessage ? (model.feedback.warn ? " warn" : " ok") : "");
 
     $("bibScope").textContent = model.hasEditor ? model.citedCount + " cited in file" : "";
@@ -377,6 +484,7 @@
       $("search").select();
     } else if (e.key === "Escape") {
       closeBibMenu();
+      closeConnMenu();
     }
   });
 
@@ -390,7 +498,14 @@
   $("nextPage").addEventListener("click", function () { send("page", { page: model.page + 1 }); });
   $("settings").addEventListener("click", function () { send("toggleOptions"); });
   $("target").addEventListener("click", function () { send("editTemplate"); });
-  $("logout").addEventListener("click", function () { send("logout"); });
+  $("connection").addEventListener("click", function (e) {
+    e.stopPropagation();
+    const open = $("connMenu").classList.toggle("hidden") === false;
+    $("connection").setAttribute("aria-expanded", String(open));
+  });
+  $("logout").addEventListener("click", function () { closeConnMenu(); send("logout"); });
+  $("menuSync").addEventListener("click", function () { closeConnMenu(); send("refresh"); });
+  $("menuSettings").addEventListener("click", function () { closeConnMenu(); send("openSettings"); });
   $("refresh").addEventListener("click", function () { send("refresh"); });
   $("login").addEventListener("click", function () { send("login"); });
   $("keysLink").addEventListener("click", function (e) { e.preventDefault(); send("openKeys"); });
@@ -399,6 +514,7 @@
   $("open").addEventListener("click", function () { send("openWeb"); });
   $("addToZotero").addEventListener("click", function () { send("relink", { key: model.details.key }); });
   $("copyKey").addEventListener("click", function () { send("copyKey"); });
+  $("copyCiteKey").addEventListener("click", function () { send("copyCiteKey"); });
   $("copyDoi").addEventListener("click", function () { send("copyDoi"); });
 
   $("bibliography").addEventListener("click", function () { closeBibMenu(); send("bibliography"); });
@@ -419,6 +535,9 @@
     if (!e.target.closest(".split")) {
       closeBibMenu();
     }
+    if (!e.target.closest(".conn-wrap")) {
+      closeConnMenu();
+    }
   });
 
   $("list").addEventListener("click", function (e) {
@@ -431,7 +550,7 @@
     if (!paper) {
       return;
     }
-    send(paper.dataset.review === "true" ? "details" : "insert", { key: paper.dataset.key });
+    send(paper.dataset.primary || "insert", { key: paper.dataset.key });
   });
 
   $("list").addEventListener("keydown", function (e) {

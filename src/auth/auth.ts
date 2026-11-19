@@ -105,11 +105,18 @@ async function runSession(
   forceNewSession: boolean,
   background: boolean
 ): Promise<{ isSessionGenerated: boolean }> {
-  const session = await authentication.getSession(
-    ZoteroAuthenticationProvider.id,
-    [],
-    forceNewSession ? { forceNewSession: true } : { createIfNone }
-  );
+  let session;
+  try {
+    session = await authentication.getSession(
+      ZoteroAuthenticationProvider.id,
+      [],
+      forceNewSession ? { forceNewSession: true } : { createIfNone }
+    );
+  } catch (e) {
+    // The user dismissed the API-key prompt (or declined the sign-in). Not a failure.
+    console.log('[Sci2Code] Sign-in cancelled:', e);
+    return { isSessionGenerated: false };
+  }
 
   try {
     if (session) {

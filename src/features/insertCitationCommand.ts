@@ -1,16 +1,17 @@
+import { citeInTextCommand, proseLanguageAt } from "./citeInTextCommand";
 import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
 import {
   extractFileName,
-  extractFunctionName,
+  findFunctionNameFromLine,
   generateCodeId,
   getZoteroItemTitle,
-  saveMetadataToZotero,
+  attachCodeIdToItem,
   formatCitationMetadata,
   getCitationDetail,
 } from "../utils/zotero.utils";
-import { renderTemplate } from "./templateService";
+import { renderTemplateAt } from "./templateService";
 import { ZoteroAuthenticationProvider } from "../providers/authProvider";
 import { createZoteroItem } from "../zotero/api";
 import { ManualCitationInput, buildManualItemData } from "../zotero/manualItem";
@@ -110,74 +111,75 @@ export async function insertCitationCommand(statusItem: vscode.StatusBarItem) {
   const position = editor.selection.active;
   const fileName = extractFileName(document.fileName);
 
-  let functionName: string | null = null;
-  for (let i = position.line; i < document.lineCount; i++) {
-    const lineText = document.lineAt(i).text;
-    functionName = extractFunctionName(lineText, "javascript"); // Assuming 'js' for now, should be language-aware
-    if (functionName) break;
-  }
+  const functionName = findFunctionNameFromLine(document, position.line);
 
   const codeId = generateCodeId(functionName || fileName, fileName);
   const titleOfItem = getZoteroItemTitle(selectedItem.zoteroItem);
-  const languageId = editor.document.languageId;
-
-  const snippet = renderTemplate(
-    languageId,
+  const snippet = renderTemplateAt(
+    document,
+    position,
     selectedItem.zoteroItem,
     { codeId, functionName }
   );
 
-  if (snippet) {
-    editor.insertSnippet(snippet);
-    vscode.window.showInformationMessage(
-      `Sci2Code: Inserted citation for "${titleOfItem}".`
-    );
-  } else {
+  if (!snippet) {
     vscode.window.showErrorMessage(
       `Sci2Code: Couldn't add citation: This file type isn't supported.`
     );
-  }
-
-  const userId = selectedItem.zoteroItem?.library?.id;
-  const itemKey = selectedItem.zoteroItem?.key;
-  const metadata = { codeId, functionName };
-  saveMetadataToZotero(userId, itemKey, metadata);
-}
-
-export const insertCitationFromSidebarCommand = (zoteroItem: any) => {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor || !zoteroItem) {
     return;
   }
 
-  const functionName = "function_from_sidebar";
+  if (!(await editor.insertSnippet(snippet))) {
+    vscode.window.showErrorMessage(
+      `Sci2Code: Couldn't insert the citation. The editor rejected the edit (is the file read-only?).`
+    );
+    return;
+  }
+
+  vscode.window.showInformationMessage(
+    `Sci2Code: Inserted citation for "${titleOfItem}".`
+  );
+  attachCodeIdToItem(selectedItem.zoteroItem, { codeId, functionName });
+}
+
+export const insertCitationFromSidebarCommand = async (zoteroItem: any): Promise<boolean> => {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || !zoteroItem) {
+    return false;
+  }
+
   const fileName = extractFileName(editor.document.fileName);
-  const codeId = generateCodeId(functionName, fileName);
+  const functionName = findFunctionNameFromLine(editor.document, editor.selection.active.line);
+  const codeId = generateCodeId(functionName || fileName, fileName);
   const titleOfItem = getZoteroItemTitle(zoteroItem);
 
-  const languageId = editor.document.languageId;
-  const snippet = renderTemplate(
-    languageId,
+  const snippet = renderTemplateAt(
+    editor.document,
+    editor.selection.active,
     zoteroItem,
     { codeId, functionName }
   );
 
-  if (snippet) {
-    editor.insertSnippet(snippet);
-
-    const userId = zoteroItem?.library?.id;
-    const itemKey = zoteroItem?.key;
-    const metadata = { codeId, functionName };
-    saveMetadataToZotero(userId, itemKey, metadata);
-
-    vscode.window.showInformationMessage(
-      `Sci2Code: Inserted citation for "${titleOfItem}".`
-    );
-  } else {
+  if (!snippet) {
     vscode.window.showErrorMessage(
       `Sci2Code: Couldn't add citation: This file type isn't supported.`
     );
+    return false;
   }
+
+  const inserted = await editor.insertSnippet(snippet);
+  if (!inserted) {
+    vscode.window.showErrorMessage(
+      `Sci2Code: Couldn't insert the citation. The editor rejected the edit (is the file read-only?).`
+    );
+    return false;
+  }
+
+  attachCodeIdToItem(zoteroItem, { codeId, functionName });
+  vscode.window.showInformationMessage(
+    `Sci2Code: Inserted citation for "${titleOfItem}".`
+  );
+  return true;
 };
 
 /**
@@ -252,12 +254,7 @@ export async function insertManualCitationCommand() {
   const position = editor.selection.active;
   const fileName = extractFileName(document.fileName);
 
-  let functionName: string | null = null;
-  for (let i = position.line; i < document.lineCount; i++) {
-    const lineText = document.lineAt(i).text;
-    functionName = extractFunctionName(lineText, "javascript");
-    if (functionName) break;
-  }
+  const functionName = findFunctionNameFromLine(document, position.line);
 
   const codeId = generateCodeId(functionName || fileName, fileName);
 
@@ -289,30 +286,41 @@ export async function insertManualCitationCommand() {
     };
   }
 
-  const languageId = editor.document.languageId;
-  const snippet = renderTemplate(languageId, manualZoteroItem, {
+  if (vscode.window.activeTextEditor === editor && proseLanguageAt(document, editor.selection.active)) {
+    const outcome = await citeInTextCommand(manualZoteroItem);
+    if (outcome?.status === "cited" && savedToZotero) {
+      vscode.window.showInformationMessage(`Sci2Code: Saved "${title}" to Zotero.`);
+    }
+    return;
+  }
+
+  const snippet = renderTemplateAt(editor.document, position, manualZoteroItem, {
     codeId,
     functionName,
   });
 
-  if (snippet) {
-    editor.insertSnippet(snippet);
-    if (savedToZotero) {
-      saveMetadataToZotero(manualZoteroItem.library?.id, manualZoteroItem.key, {
-        codeId,
-        functionName,
-      });
-    }
-    vscode.window.showInformationMessage(
-      savedToZotero
-        ? `Sci2Code: Saved "${title}" to Zotero and inserted the citation.`
-        : `Sci2Code: Inserted manual citation for "${title}".`
-    );
-  } else {
+  if (!snippet) {
     vscode.window.showErrorMessage(
       `Sci2Code: Couldn't add citation: This file type isn't supported.`
     );
+    return;
   }
+
+  if (!(await editor.insertSnippet(snippet))) {
+    vscode.window.showErrorMessage(
+      `Sci2Code: Couldn't insert the citation. The editor rejected the edit (is the file read-only?).`
+    );
+    return;
+  }
+
+  if (savedToZotero) {
+    attachCodeIdToItem(manualZoteroItem, { codeId, functionName });
+  }
+  vscode.window.showInformationMessage(
+    savedToZotero
+      ? `Sci2Code: Saved "${title}" to Zotero and inserted the citation.`
+      : `Sci2Code: Inserted manual citation for "${title}".`
+  );
 }
 
 export async function createManualItemInZotero(input: ManualCitationInput): Promise<any> {

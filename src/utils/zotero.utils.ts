@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { fetchZoteroItem, updateZoteroTags } from "../zotero/api";
 import { ZoteroAuthenticationProvider } from "../providers/authProvider";
 import { generateSha256 } from "./utils";
+import { findFunctionNameFrom } from "./functionName";
 
 export function getZoteroItemTitle(zoteroItem: any): string {
   if (zoteroItem?.data) {
@@ -98,27 +99,18 @@ function limitCharacters(text: string, maxChars: number): string {
   return text.length <= maxChars ? text : text.substring(0, maxChars) + "...";
 }
 
-export function extractFunctionName(
-  lineText: string,
-  lang: "javascript" | "python" | "r" | "julia"
+export { extractFunctionName, functionLanguage } from "./functionName";
+
+/** First function defined at or after `fromLine`, for the document's language. */
+export function findFunctionNameFromLine(
+  document: vscode.TextDocument,
+  fromLine: number
 ): string | null {
-  let match = null;
-  switch (lang) {
-    case "javascript":
-      match = lineText.match(/function\s+(\w+)\s*\(/);
-      return match ? match[1] : null;
-    case "python":
-      match = lineText.match(/def\s+(\w+)\s*\(/);
-      return match ? match[1] : null;
-    case "r":
-      match = lineText.match(/(\w+)\s*<-\s*function\s*\(/);
-      return match ? match[1] : null;
-    case "julia":
-      match = lineText.match(/^\s*function\s+([\w\.]+)/);
-      return match ? match[1] : null;
-    default:
-  }
-  return match;
+  return findFunctionNameFrom(
+    { count: document.lineCount, at: (i) => document.lineAt(i).text },
+    document.languageId,
+    fromLine
+  );
 }
 
 export function extractFileName(fullPath: string): string {
@@ -161,7 +153,7 @@ export async function saveMetadataToZotero(
     }
 
     const zoteroItem = await fetchZoteroItem(userId, itemKey, apiKey);
-    if (!zoteroItem.ok) throw new Error(zoteroItem.statusText);
+    if (!zoteroItem.ok) throw new Error(`reading the item failed (${zoteroItem.status} ${zoteroItem.statusText})`);
 
     const zoteroItemRes: any = await zoteroItem.json();
     const version = zoteroItemRes.version;
@@ -175,14 +167,42 @@ export async function saveMetadataToZotero(
       version,
       updatedTags
     );
-    if (!addZoteroTag.ok) throw new Error(addZoteroTag.statusText);
+    if (!addZoteroTag.ok) {
+      const hint =
+        addZoteroTag.status === 403
+          ? "your API key is read-only. Create a key with write access at zotero.org/settings/keys"
+          : addZoteroTag.status === 412
+            ? "the item changed in Zotero while saving"
+            : addZoteroTag.status === 404
+              ? "the item was not found (group libraries are not supported for this step)"
+              : `${addZoteroTag.status} ${addZoteroTag.statusText}`;
+      throw new Error(hint);
+    }
 
     vscode.window.showInformationMessage(
       "Zotero | Successfully attached codeId to zotero."
     );
   } catch (err: any) {
-    vscode.window.showInformationMessage(
-      `Zotero | Failed to attach codeId to zotero. Please try again.`
+    console.error("[Sci2Code] Failed to attach codeId to Zotero:", err);
+    vscode.window.showWarningMessage(
+      `Zotero | Failed to attach codeId to Zotero: ${err?.message ?? "unknown error"}.`
     );
   }
+}
+
+/**
+ * Saves the code id as a tag on the Zotero item. Skipped for items that cannot
+ * be updated through the personal-library endpoint: group-library items and
+ * manual citations that never reached Zotero.
+ */
+export function attachCodeIdToItem(
+  zoteroItem: any,
+  metadata: { codeId: string; functionName: string | null }
+): Promise<void> | undefined {
+  const userId = zoteroItem?.library?.id;
+  const itemKey = zoteroItem?.key;
+  if (!userId || !itemKey || zoteroItem.library?.type === "group" || /^MANUAL_/.test(itemKey)) {
+    return undefined;
+  }
+  return saveMetadataToZotero(String(userId), itemKey, metadata);
 }

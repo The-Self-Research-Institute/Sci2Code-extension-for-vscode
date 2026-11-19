@@ -1,11 +1,8 @@
 import * as vscode from "vscode";
 import { contextService } from "../services/contextService";
 import { ZOTERO_CONTEXT } from "../system/constants";
-import {
-  getZoteroItemTitle,
-  formatCitationMetadata,
-  getCitationDetail,
-} from "../utils/zotero.utils";
+import { getZoteroItemTitle, formatCitationMetadata } from "../utils/zotero.utils";
+import { doiMarkdownLink } from "./snippetText";
 
 const ZOTERO_KEY_AT_CURSOR = /\b[A-Z0-9]{8}\b/;
 const OPEN_CITATION_COMMAND = "sci2code.openCitation";
@@ -19,6 +16,8 @@ const LANGUAGES = [
   "python",
   "r",
   "julia",
+  "quarto",
+  "typst",
 ];
 
 const SELECTOR: vscode.DocumentSelector = LANGUAGES.flatMap((language) => [
@@ -41,6 +40,21 @@ function commandLink(label: string, command: string, key: string): string {
   return `[${label}](command:${command}?${encodeURIComponent(JSON.stringify([key]))})`;
 }
 
+function detailWithoutDoi(item: any): string {
+  const data = item.data || {};
+  const parts: string[] = [];
+  if (data.volume) {
+    parts.push(`Vol. ${data.volume}`);
+  }
+  if (data.issue) {
+    parts.push(`Issue ${data.issue}`);
+  }
+  if (data.pages) {
+    parts.push(`pp. ${data.pages}`);
+  }
+  return parts.join(" | ");
+}
+
 function escapeMarkdown(text: string): string {
   return text.replace(/([\\`*_{}\[\]()#+\-.!|<>])/g, "\\$1");
 }
@@ -61,8 +75,15 @@ export function registerCitationHover(): vscode.Disposable {
       md.appendMarkdown(`**${escapeMarkdown(getZoteroItemTitle(item))}**\n\n`);
       md.appendMarkdown(`${escapeMarkdown(formatCitationMetadata(item))}\n\n`);
 
-      const detail = getCitationDetail(item);
-      if (detail) md.appendMarkdown(`${escapeMarkdown(detail)}\n\n`);
+      const doi = doiMarkdownLink(item.data?.DOI);
+      if (doi) {
+        md.appendMarkdown(`DOI: ${doi}\n\n`);
+      }
+
+      const detail = detailWithoutDoi(item);
+      if (detail) {
+        md.appendMarkdown(`${escapeMarkdown(detail)}\n\n`);
+      }
 
       const actions: string[] = [];
       if (itemWebUrl(item)) actions.push(commandLink("$(link-external) Open", OPEN_CITATION_COMMAND, key));

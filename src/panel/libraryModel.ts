@@ -239,45 +239,163 @@ export interface UnresolvedCitation {
   url: string;
 }
 
-const CITATION_ID_PATTERN = /@ZoteroArticleIDs[ \t]+([A-Za-z0-9_]+)/g;
+// Every built-in template writes the Zotero key on a recognisable line:
+//   JS/TS   @ZoteroArticleIDs KEY      R   #' @ZoteroArticleIDs: KEY
+//   Python/Quarto/Typst   Key: KEY     Julia/default   Zotero Key: KEY
+const CITATION_ID_PATTERN = /@ZoteroArticleIDs:?[ \t]+([A-Za-z0-9_]+)/g;
+const KEY_LINE_PATTERN = /^[ \t]*(?:\/\/[ \t]*)?(?:Zotero )?Key:[ \t]+([A-Z0-9]{8})\b/gm;
 const MANUAL_KEY_PATTERN = /\bMANUAL_\d+\b/g;
 const BLOCK_LOOKBEHIND = 600;
 const BLOCK_LOOKAHEAD = 600;
+const BLANK_LINE = /\r?\n[ \t]*\r?\n/g;
+
+function cleanValue(raw: string): string {
+  const value = raw.replace(/\s*(\*\/|-->|""")\s*$/, "").trim();
+  return value && value !== "N/A" ? value : "";
+}
 
 function tagValue(block: string, tag: string): string {
-  const match = block.match(new RegExp(`@${tag}[ \t]+([^\r\n]*)`));
-  const value = match ? match[1].replace(/\s*\*\/\s*$/, "").trim() : "";
-  return value && value !== "N/A" ? value : "";
+  const match = block.match(new RegExp(`@${tag}:?[ \t]+([^\r\n]*)`));
+  return match ? cleanValue(match[1]) : "";
+}
+
+function labelValue(block: string, labels: string[]): string {
+  for (const label of labels) {
+    const match = block.match(new RegExp(`^[ \t]*(?://[ \t]*)?${label}:[ \t]*([^\r\n]*)`, "m"));
+    const value = match ? cleanValue(match[1]) : "";
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function bareDoi(value: string): string {
+  return value.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "");
+}
+
+function lineBounds(text: string, index: number): { start: number; end: number } {
+  const start = text.lastIndexOf("\n", index - 1) + 1;
+  const nl = text.indexOf("\n", index);
+  return { start, end: nl === -1 ? text.length : nl };
+}
+
+/**
+ * The block of `#'` or `//` comment lines that holds the key at `index`. Runs of
+ * consecutive comment lines are split where one citation ends and the next
+ * begins: two bare lines in a row (`#'` then `#'`), or a "Zotero Reference" header.
+ */
+function lineCommentRun(text: string, index: number, prefix: string): string {
+  const lines = text.split("\n");
+  const offsets: number[] = [];
+  let at = 0;
+  for (const line of lines) {
+    offsets.push(at);
+    at += line.length + 1;
+  }
+  let keyLine = offsets.findIndex((o, i) => index >= o && index <= o + lines[i].length);
+
+  const isComment = (i: number) => lines[i].trimStart().startsWith(prefix);
+  const content = (i: number) => lines[i].trimStart().slice(prefix.length).trim();
+  let first = keyLine;
+  while (first > 0 && isComment(first - 1)) {
+    first--;
+  }
+  let last = keyLine;
+  while (last + 1 < lines.length && isComment(last + 1)) {
+    last++;
+  }
+
+  const startsBlock = (i: number) =>
+    i > first && ((content(i) === "" && content(i - 1) === "") || /^Zotero Reference\b/.test(content(i)));
+  let start = keyLine;
+  while (start > first && !startsBlock(start)) {
+    start--;
+  }
+  let end = keyLine;
+  while (end < last && !startsBlock(end + 1)) {
+    end++;
+  }
+  return lines.slice(start, end + 1).join("\n");
+}
+
+/** The delimited comment that encloses `index`, using the real delimiters. */
+function delimitedComment(text: string, index: number): string | undefined {
+  let best: { start: number; end: number } | undefined;
+  const consider = (start: number, end: number) => {
+    if (start >= 0 && (!best || start > best.start)) {
+      best = { start, end };
+    }
+  };
+
+  for (const [open, close] of [["/*", "*/"], ["<!--", "-->"]]) {
+    const start = text.lastIndexOf(open, index);
+    if (start >= 0 && start > text.lastIndexOf(close, index)) {
+      const end = text.indexOf(close, index);
+      consider(start, end === -1 ? text.length : end + close.length);
+    }
+  }
+  for (const quote of ['"""', "'''"]) {
+    const before = text.slice(0, index).split(quote).length - 1;
+    if (before % 2 === 1) {
+      const start = text.lastIndexOf(quote, index);
+      const end = text.indexOf(quote, index);
+      consider(start, end === -1 ? text.length : end + quote.length);
+    }
+  }
+  return best ? text.slice(best.start, best.end) : undefined;
+}
+
+// The comment that holds the key at `index`: a run of `#'` or `//` lines, a
+// delimited block, or (last resort) the blank-line-delimited paragraph. Reading
+// only that comment keeps two adjacent citations from borrowing each other's title.
+function commentAround(text: string, index: number): string {
+  const { start, end } = lineBounds(text, index);
+  const line = text.slice(start, end).trimStart();
+  for (const prefix of ["#'", "//"]) {
+    if (line.startsWith(prefix)) {
+      return lineCommentRun(text, index, prefix);
+    }
+  }
+  const delimited = delimitedComment(text, index);
+  if (delimited) {
+    return delimited;
+  }
+
+  const from = Math.max(0, index - BLOCK_LOOKBEHIND);
+  const block = text.slice(from, index + BLOCK_LOOKAHEAD);
+  const rel = index - from;
+  let paragraphStart = 0;
+  for (const m of block.slice(0, rel).matchAll(BLANK_LINE)) {
+    paragraphStart = (m.index ?? 0) + m[0].length;
+  }
+  const blank = block.slice(rel).search(BLANK_LINE);
+  return block.slice(paragraphStart, blank >= 0 ? rel + blank : block.length);
 }
 
 export function findUnresolvedCitations(text: string, knownKeys: Set<string>): UnresolvedCitation[] {
   const found = new Map<string, UnresolvedCitation>();
   const candidates: Array<{ key: string; index: number }> = [];
 
-  for (const m of text.matchAll(CITATION_ID_PATTERN)) {
-    candidates.push({ key: m[1], index: m.index ?? 0 });
-  }
-  for (const m of text.matchAll(MANUAL_KEY_PATTERN)) {
-    candidates.push({ key: m[0], index: m.index ?? 0 });
+  for (const pattern of [CITATION_ID_PATTERN, KEY_LINE_PATTERN, MANUAL_KEY_PATTERN]) {
+    for (const m of text.matchAll(pattern)) {
+      candidates.push({ key: m[1] ?? m[0], index: m.index ?? 0 });
+    }
   }
 
   for (const { key, index } of candidates) {
     if (key === "N" || key === "A" || knownKeys.has(key) || found.has(key)) {
       continue;
     }
-    const block = text.slice(
-      Math.max(0, index - BLOCK_LOOKBEHIND),
-      index + BLOCK_LOOKAHEAD
-    );
-    const start = block.lastIndexOf("/**", index - Math.max(0, index - BLOCK_LOOKBEHIND));
-    const scoped = start >= 0 ? block.slice(start) : block;
-    const end = scoped.indexOf("*/");
-    const comment = end >= 0 ? scoped.slice(0, end + 2) : scoped;
+    const comment = commentAround(text, index);
     found.set(key, {
       key,
-      title: tagValue(comment, "ZoteroArticleNames") || key,
-      doi: tagValue(comment, "ZoteroDOI"),
-      url: tagValue(comment, "ZoteroArticleURLs"),
+      title:
+        tagValue(comment, "ZoteroArticleNames") ||
+        labelValue(comment, ["Title", "Reference"]) ||
+        key,
+      doi: bareDoi(tagValue(comment, "ZoteroDOI") || labelValue(comment, ["DOI"])),
+      url: tagValue(comment, "ZoteroArticleURLs") || labelValue(comment, ["URL"]),
     });
   }
   return Array.from(found.values());

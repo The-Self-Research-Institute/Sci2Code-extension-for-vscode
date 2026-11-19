@@ -6,38 +6,24 @@ import {
   extractFunctionName,
   generateCodeId,
   getZoteroItemTitle,
-  saveMetadataToZotero,
   formatCitationMetadata,
   getCitationDetail,
 } from "../utils/zotero.utils";
-import { renderTemplate } from "./templateService";
+import { renderTemplateAt } from "./templateService";
+import { completionPath, findTrigger, triggersFor } from "./triggerRules";
+import { citeCompletionItems } from "./citeCompletion";
+import { proseLanguageAt } from "./citeInTextCommand";
+
+export const ATTACH_CODE_ID_COMMAND = "sci2code.attachCodeId";
 
 // ============================================================================
 // UNIFIED TRIGGER PATTERN MANAGER
 // ============================================================================
 
-interface TriggerPattern {
-  trigger: string;
-  prefixRegex: RegExp;
-  suffixRegex: RegExp;
-}
-
 class TriggerPatternManager {
-  private patterns: TriggerPattern[] = [];
   private static instance: TriggerPatternManager;
 
-  private constructor() {
-    this.updatePatterns();
-
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (
-        e.affectsConfiguration("sci2code.triggers") ||
-        e.affectsConfiguration("sci2code.languageSpecificTriggers")
-      ) {
-        this.updatePatterns();
-      }
-    });
-  }
+  private constructor() { }
 
   public static getInstance(): TriggerPatternManager {
     if (!TriggerPatternManager.instance) {
@@ -46,85 +32,37 @@ class TriggerPatternManager {
     return TriggerPatternManager.instance;
   }
 
-  public updatePatterns() {
+  public updatePatterns() { }
+
+  public triggersForDocument(document: vscode.TextDocument): string[] {
     const config = vscode.workspace.getConfiguration("sci2code");
-    const globalTriggers = config.get<string[]>("triggers", []);
-    const langConfig = config.get<Record<string, string[]>>(
-      "languageSpecificTriggers",
-      {}
+    return triggersFor(
+      document.languageId,
+      config.get<string[]>("triggers", []),
+      config.get<Record<string, string[]>>("languageSpecificTriggers", {})
     );
-
-    const allLanguageIds = new Set(Object.keys(langConfig));
-    const activeEditor = vscode.window.activeTextEditor;
-    if (activeEditor) {
-      allLanguageIds.add(activeEditor.document.languageId);
-    }
-
-    let allTriggers = new Set<string>(globalTriggers);
-    Object.values(langConfig).forEach((triggers) => {
-      triggers.forEach((trigger) => allTriggers.add(trigger));
-    });
-
-    this.patterns = Array.from(allTriggers).map((trigger) =>
-      this.createPattern(trigger)
-    );
-  }
-
-  private createPattern(trigger: string): TriggerPattern {
-    const escapedTrigger = trigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const prefixRegex = new RegExp(`${escapedTrigger}\\s*$`);
-    const suffixRegex = this.inferSuffixPattern(trigger);
-    return { trigger, prefixRegex, suffixRegex };
-  }
-
-  private inferSuffixPattern(trigger: string): RegExp {
-    const mappings: Record<string, string> = {
-      "/**": "\\*\\/",
-      "/*": "\\*\\/",
-      '"""': '"""',
-      "'''": "'''",
-      "(": ")",
-      "[": "]",
-      "{": "}",
-      "<": ">",
-    };
-    for (const key in mappings) {
-      if (trigger.startsWith(key)) {
-        return new RegExp(`^\\s*${mappings[key]}\\s*`);
-      }
-    }
-    return /^\s*/;
   }
 
   public findMatchingPattern(
     document: vscode.TextDocument,
     position: vscode.Position
   ): {
-    pattern: TriggerPattern;
+    pattern: { trigger: string };
     range: vscode.Range;
   } | null {
     const line = document.lineAt(position.line).text;
-    const prefix = line.slice(0, position.character);
-    const suffix = line.slice(position.character);
-
-    const sortedPatterns = [...this.patterns].sort(
-      (a, b) => b.trigger.length - a.trigger.length
+    const match = findTrigger(
+      line.slice(0, position.character),
+      line.slice(position.character),
+      this.triggersForDocument(document)
     );
-
-    for (const pattern of sortedPatterns) {
-      const prefixMatch = prefix.match(pattern.prefixRegex);
-      if (prefixMatch) {
-        const suffixMatch = suffix.match(pattern.suffixRegex);
-        const start = position.translate(0, -prefixMatch[0].length);
-        const end = position.translate(
-          0,
-          suffixMatch ? suffixMatch[0].length : 0
-        );
-        const range = new vscode.Range(start, end);
-        return { pattern, range };
-      }
+    if (!match) {
+      return null;
     }
-    return null;
+    return {
+      pattern: { trigger: match.trigger },
+      range: new vscode.Range(position.line, match.start, position.line, match.end),
+    };
   }
 
   public getTriggersForLanguage(languageId: string): string[] {
@@ -196,7 +134,13 @@ class LanguageCompletionItem extends BaseDocCompletionItem {
       zoteroItem,
       metadata
     );
-    this.insertText = renderTemplate(document.languageId, zoteroItem, metadata);
+    this.insertText = renderTemplateAt(document, position, zoteroItem, metadata);
+    // Runs only when the user accepts this item, not while they browse the list.
+    this.command = {
+      command: ATTACH_CODE_ID_COMMAND,
+      title: "Attach code id to Zotero",
+      arguments: [zoteroItem, metadata],
+    };
   }
 }
 
@@ -208,52 +152,56 @@ class UnifiedDocCompletionProvider implements vscode.CompletionItemProvider {
     position: vscode.Position
   ): Promise<vscode.CompletionItem[] | undefined> {
     const match = triggerPatternManager.findMatchingPattern(document, position);
-    console.log("Matching pattern:", match);
     if (!match) {
       return undefined;
     }
 
-    const nextLineIndex = position.line + 1;
-    console.log("Extracted next line index:", nextLineIndex, this.languageId);
-    if (nextLineIndex >= document.lineCount) {
-      return undefined;
-    }
-
-    const nextLineText = document.lineAt(nextLineIndex).text;
-    const functionName = extractFunctionName(
-      nextLineText,
-      this.languageId as any
-    );
-    console.log("Extracted function name:", functionName);
-    if (!functionName) {
-      return undefined;
-    }
-
     const zoteroItems = contextService.getContext(ZOTERO_CONTEXT.ZOTERO_ITEMS);
-    console.log("Extracted Zotero items:", zoteroItems);
     if (!zoteroItems || zoteroItems.length === 0) {
       return undefined;
     }
 
-    const fileName = extractFileName(document.fileName);
-    const codeId = generateCodeId(functionName, fileName);
-    const metadata = { codeId, functionName };
+    const nextLineIndex = position.line + 1;
+    const nextLineText = nextLineIndex < document.lineCount ? document.lineAt(nextLineIndex).text : "";
+    const functionName = nextLineText
+      ? extractFunctionName(nextLineText, this.languageId as any)
+      : null;
 
-    return zoteroItems
-      .filter((item: any) => item.data.itemType !== 'note')
-      .map((item: any) => new LanguageCompletionItem(document, position, item, metadata));
-  }
+    const proseFile = this.languageId === "quarto" || this.languageId === "typst";
+    const path = completionPath(
+      this.languageId,
+      match.pattern.trigger,
+      functionName,
+      proseFile && !!proseLanguageAt(document, position)
+    );
 
-  public resolveCompletionItem(
-    item: BaseDocCompletionItem,
-    token: vscode.CancellationToken
-  ): vscode.ProviderResult<vscode.CompletionItem> {
-    const userId = item?.zoteroItem?.library?.id;
-    const itemKey = item?.zoteroItem?.key;
-    if (userId && itemKey && item.metadata) {
-      saveMetadataToZotero(userId, itemKey, item.metadata);
+    if (path === "function" && functionName) {
+      const fileName = extractFileName(document.fileName);
+      const codeId = generateCodeId(functionName, fileName);
+      const metadata = { codeId, functionName };
+
+      return zoteroItems
+        .filter((item: any) => item.data.itemType !== 'note')
+        .map((item: any) => new LanguageCompletionItem(document, position, item, metadata));
     }
-    return item;
+
+    if (path === "reference") {
+      const fileName = extractFileName(document.fileName);
+      const metadata = { codeId: generateCodeId(fileName, fileName), functionName: "" };
+      return zoteroItems
+        .filter((item: any) => item.data.itemType !== 'note')
+        .map((item: any) => new LanguageCompletionItem(document, position, item, metadata));
+    }
+
+    if (path === "prose") {
+      return citeCompletionItems(match.range, document.getText(match.range), `${match.pattern.trigger} `, {
+        line: match.range.start.line,
+        start: match.range.start.character,
+        end: match.range.end.character,
+      });
+    }
+
+    return undefined;
   }
 }
 
